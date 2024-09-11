@@ -5,7 +5,7 @@ import threading
 import sys
 
 import fusejet.image
-import fusejet.comm
+import fusejet.comms
 
 MAX_HEIGHT = 32
 MAX_WIDTH = 32
@@ -43,11 +43,16 @@ def main():
     prepared_image = fusejet.image.prepare(args.image_path, args.width, args.height)
 
     # confirm image with user
+    print('fusejet: showing prepared image')
+    fusejet.image.show_image(prepared_image)
+
+    response = input('fusejet: print prepared image? ').lower()
+    if (not (response == 'yes' or response =='y')):
+        sys.exit(0)
 
     # begin printing: spawn threads
-    # - reader
-    # - writer
-    # - progress reporter
+    # - communication with controller and print logic
+    # - progress reporter / IO
 
     # exit
     
