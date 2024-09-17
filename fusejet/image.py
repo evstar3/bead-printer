@@ -4,8 +4,6 @@ from PIL import Image
 import PIL
 import os
 import sys
-import tempfile
-import subprocess
 
 def prepare(image_path: str, width: int, height: int):
     if not os.path.exists(image_path):
@@ -29,8 +27,4 @@ def prepare(image_path: str, width: int, height: int):
     return quantized
 
 def show_image(image):
-    with tempfile.NamedTemporaryFile(delete_on_close=False) as fp:
-        image.save(fp.name, format='PNG')
-        fp.close()
-
-        subprocess.run(["/usr/bin/eog", fp.name])
+    image.show()
