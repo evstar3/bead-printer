@@ -40,6 +40,14 @@ def main():
         sys.exit(1)
 
     # read and transform image
+    if not os.path.exists(image_path):
+        print(f'fusejet: error: file not found: {image_path}')
+        sys.exit(1)
+
+    if not os.path.isfile(image_path):
+        print(f'fusejet: error: image path does not specify a regular file: {image_path}')
+        sys.exit(1)
+
     prepared_image = fusejet.image.prepare(args.image_path, args.width, args.height)
 
     # confirm image with user
