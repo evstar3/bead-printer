@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
-import threading
 import sys
+import os
 
-import fusejet.image
-import fusejet.comms
+from fusejet import print_job
+from fusejet import comms
 
 MAX_HEIGHT = 32
-MAX_WIDTH = 32
+MAX_WIDTH  = 32
 
 def main():
     # parse command line arguments
@@ -40,29 +40,23 @@ def main():
         sys.exit(1)
 
     # read and transform image
-    if not os.path.exists(image_path):
+    if not os.path.exists(args.image_path):
         print(f'fusejet: error: file not found: {image_path}')
         sys.exit(1)
 
-    if not os.path.isfile(image_path):
+    if not os.path.isfile(args.image_path):
         print(f'fusejet: error: image path does not specify a regular file: {image_path}')
         sys.exit(1)
 
-    prepared_image = fusejet.image.prepare(args.image_path, args.width, args.height)
+    read_fn  = comms.debug_read
+    write_fn = comms.debug_write
+    job = print_job.PrintJob(args.image_path, args.width, args.height, read_fn, write_fn)
 
-    # confirm image with user
-    print('fusejet: showing prepared image')
-    fusejet.image.show_image(prepared_image)
-
-    response = input('fusejet: print prepared image? ').lower()
-    if (not (response == 'yes' or response =='y')):
+    if not job.confirm():
         sys.exit(0)
 
-    # begin printing: spawn threads
-    # - communication with controller and print logic
-    # - progress reporter / IO
+    while not job.is_done():
+        job.place_bead()
 
-    # exit
-    
 if __name__ == '__main__':
     main()
