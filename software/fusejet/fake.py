@@ -3,9 +3,13 @@
 import struct
 import sys
 
-def send_color(fileobj, V, B, G, Y, O, R):
-    return fileobj.write(struct.pack('<' + 'f'*6, V, B, G, Y, O, R))
-
 if __name__ == '__main__':
+    print('y', flush=True)
+
     for line in sys.stdin:
-        send_color(sys.stdout.buffer, *(float(tok) for tok in line.split()))
+        colors = tuple(float(tok) for tok in line.split())
+        if len(colors) != 6:
+            continue
+
+        sys.stdout.buffer.write(struct.pack('<' + 'f'*6, *colors))
+        sys.stdout.flush()

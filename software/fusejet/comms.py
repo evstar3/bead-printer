@@ -8,18 +8,20 @@ class ArduinoController():
     def __init__(self, fileobj):
         self.fileobj = fileobj
 
-    def start():
+    def start(self):
         self.fileobj.write(struct.pack("B", 2))
 
-    def stop():
+    def stop(self):
         self.fileobj.write(struct.pack("B", 3))
 
-    def goto(x, y):
+    def goto(self, x, y):
         self.fileobj.write(struct.pack("BBB", 0, x, y))
 
-    def drop(x, y):
+    def drop(self, x, y):
         self.fileobj.write(struct.pack("BBB", 1, x, y))
 
-    def read_color():
+    def read_color(self):
         float_bytes = self.fileobj.read(24)
-        return struct.unpack('<' + 'f'*6, float_bytes)
+        colors = struct.unpack('<' + 'f'*6, float_bytes)
+        print(colors)
+        return colors

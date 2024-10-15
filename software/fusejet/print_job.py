@@ -34,7 +34,7 @@ class PrintJob():
 
     def confirm(self) -> bool:
         print('fusejet: showing prepared image')
-        self.prepared_image.show()
+        # self.prepared_image.show()
 
         response = input('fusejet: print prepared image? ').lower()
 

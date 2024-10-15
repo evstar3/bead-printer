@@ -49,7 +49,10 @@ def main():
         sys.exit(1)
 
     if __debug__:
-        fileobj = sys.stdin
+        import types
+        fileobj = types.SimpleNamespace()
+        fileobj.read  = lambda *args: sys.stdin.buffer.read(*args)
+        fileobj.write = lambda *args: sys.stdout.buffer.write(*args)
     else:
         fileobj = None
 
