@@ -48,15 +48,22 @@ def main():
         print(f'fusejet: error: image path does not specify a regular file: {image_path}')
         sys.exit(1)
 
-    read_fn  = comms.debug_read
-    write_fn = comms.debug_write
-    job = print_job.PrintJob(args.image_path, args.width, args.height, read_fn, write_fn)
+    if __debug__:
+        fileobj = sys.stdin
+    else:
+        fileobj = None
 
-    if not job.confirm():
+    job = print_job.PrintJob(args.image_path, args.width, args.height, fileobj)
+
+    if job.confirm():
+        job.arduino_controller.start()
+    else:
         sys.exit(0)
 
     while not job.is_done():
         job.place_bead()
+
+    job.arduino_controller.stop()
 
 if __name__ == '__main__':
     main()

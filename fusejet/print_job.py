@@ -5,22 +5,13 @@ import itertools
 from collections import defaultdict
 from collections.abc import Iterable
 
-class PrintJob():
-    DEFAULT_PALETTE = [
-        (0, 0, 0),
-        (170, 0, 0),
-        (0, 170, 0),
-        (170, 85, 0),
-        (0, 0, 170),
-        (170, 0, 170),
-        (0, 170, 170),
-        (170, 170, 170),
-        (255, 255, 255)
-    ]
+from fusejet.comms import ArduinoController
 
-    def __init__(self, fp, width: int, height: int, read_fn, write_fn, palette: list[tuple[int, int, int]] = None) -> None:
-        self.read_fn = read_fn
-        self.write_fn = write_fn
+class PrintJob():
+    DEFAULT_PALETTE = [ ] # FIXME
+
+    def __init__(self, fp, width: int, height: int, fileobj, palette: list[tuple[int, int, int]] = None) -> None:
+        self.arduino_controller = ArduinoController(fileobj)
 
         if not palette:
             self.palette = PrintJob.DEFAULT_PALETTE
@@ -66,7 +57,7 @@ class PrintJob():
         return len(self.to_place) == 0
 
     def place_bead(self):
-        color = tuple(self.read_fn(3))
+        color = self.arduino_controller.read_color()
 
         palette_index = self.classify_color(color)
 
@@ -80,14 +71,3 @@ class PrintJob():
             self.to_place[palette_index].remove(placement)
             if not self.to_place[palette_index]:
                 del self.to_place[palette_index]
-
-    def reject_bead(self):
-        self.write_fn(b'0')
-
-    def drop_bead(self, placement):
-        self.write_fn(b'1')
-        self.write_fn(bytes(placement))
-        self.pos = placement
-        
-
-        
