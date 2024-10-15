@@ -6,6 +6,7 @@ import os
 
 from fusejet import print_job
 from fusejet import comms
+from serial import Serial
 
 MAX_HEIGHT = 32
 MAX_WIDTH  = 32
@@ -48,15 +49,12 @@ def main():
         print(f'fusejet: error: image path does not specify a regular file: {image_path}')
         sys.exit(1)
 
+    ser = Serial()
     if __debug__:
-        import types
-        fileobj = types.SimpleNamespace()
-        fileobj.read  = lambda *args: sys.stdin.buffer.read(*args)
-        fileobj.write = lambda *args: sys.stdout.buffer.write(*args)
-    else:
-        fileobj = None
+        ser.read  = lambda *args: sys.stdin.buffer.read(*args)
+        ser.write = lambda *args: print(str(args[0]), flush=True)
 
-    job = print_job.PrintJob(args.image_path, args.width, args.height, fileobj)
+    job = print_job.PrintJob(args.image_path, args.width, args.height, ser)
 
     if job.confirm():
         job.arduino_controller.start()

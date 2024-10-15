@@ -8,10 +8,13 @@ from collections.abc import Iterable
 from fusejet.comms import ArduinoController
 
 class PrintJob():
-    DEFAULT_PALETTE = [ ] # FIXME
+    DEFAULT_PALETTE = [
+    #    V  B  G  Y  O  R
+        (0, 0, 0, 0, 0, 0)
+    ]
 
-    def __init__(self, fp, width: int, height: int, fileobj, palette: list[tuple[int, int, int]] = None) -> None:
-        self.arduino_controller = ArduinoController(fileobj)
+    def __init__(self, fp, width: int, height: int, serial, palette: list[tuple[int, int, int]] = None) -> None:
+        self.arduino_controller = ArduinoController(serial)
 
         if not palette:
             self.palette = PrintJob.DEFAULT_PALETTE
@@ -47,6 +50,8 @@ class PrintJob():
     def classify_color(self, color: tuple[int, int, int]) -> int | None:
         min_index, min_dist = min(((i, PrintJob.euclidean_distance(color, c)) for i, c in enumerate(self.palette)), key=lambda x: x[1])
 
+        print(min_dist)
+
         cutoff = 100
         if min_dist < cutoff:
             return min_index
@@ -61,11 +66,11 @@ class PrintJob():
 
         palette_index = self.classify_color(color)
 
-        if (not palette_index) or (palette_index not in self.to_place):
-            self.reject_bead()
+        if (palette_index is None) or (palette_index not in self.to_place):
+            self.arduino_controller.reject()
         else: 
             placement = min(self.to_place[palette_index], key=lambda x: PrintJob.euclidean_distance(x, self.pos))
-            self.drop_bead(placement)
+            self.arduino_controller.drop(placement)
 
             self.placed[placement] = palette_index
             self.to_place[palette_index].remove(placement)
