@@ -51,8 +51,13 @@ def main():
 
     ser = Serial()
     if __debug__:
-        ser.read  = lambda *args: sys.stdin.buffer.read(*args)
-        ser.write = lambda *args: print(str(args[0]), flush=True)
+        def debug_read(n):
+            return sys.stdin.buffer.read(n)
+        def debug_write(data):
+            print(str(data))
+
+        ser.read  = debug_read
+        ser.write = debug_write
 
     job = print_job.PrintJob(args.image_path, args.width, args.height, ser)
 
