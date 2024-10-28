@@ -146,23 +146,6 @@ void parseSerial() {
   }
 }
 
-void colorSensorTask() {
-
-  float data[AS726x_NUM_CHANNELS];
-
-  // colorSensor.startMeasurement(); // begin a measurement
-  // TODO: ^^ ideally it's in continuous mode?
-
-  // wait till data is available
-  while (!colorSensor.dataReady())
-    delay(5);
-
-  colorSensor.readCalibratedValues(data);
-
-  // send the color values as raw bytes (6 x f32)
-  Serial.write((uint8_t *)data, sizeof(float) * AS726x_NUM_CHANNELS);
-}
-
 // TODO: this needs to be a timer interrupt
 void updateBeadGearStepper() {
   // TODO: this
