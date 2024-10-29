@@ -6,8 +6,8 @@
 	(paper "USLetter")
 	(title_block
 		(title "FuseJet")
-		(date "2024-10-02")
-		(rev "v0")
+		(date "2024-10-28")
+		(rev "v1")
 		(company "Steven Conaway, Evan Day, James Lindell")
 	)
 	(lib_symbols
@@ -4089,16 +4089,6 @@
 	)
 	(wire
 		(pts
-			(xy 99.06 59.69) (xy 107.95 59.69)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "46fc249f-bfce-4060-a228-8d9a4ca8161f")
-	)
-	(wire
-		(pts
 			(xy 33.02 156.21) (xy 29.21 156.21)
 		)
 		(stroke
@@ -4116,16 +4106,6 @@
 			(type default)
 		)
 		(uuid "49b2f96e-7adf-4e6f-ae56-442e5e8b729a")
-	)
-	(wire
-		(pts
-			(xy 99.06 57.15) (xy 107.95 57.15)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4a6256d6-ce48-4448-b492-db3bdcd82370")
 	)
 	(wire
 		(pts
@@ -4309,6 +4289,16 @@
 	)
 	(wire
 		(pts
+			(xy 99.06 57.15) (xy 107.95 57.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "749389fc-05f6-4da1-83c3-162c470329f2")
+	)
+	(wire
+		(pts
 			(xy 226.06 72.39) (xy 238.76 72.39)
 		)
 		(stroke
@@ -4336,6 +4326,16 @@
 			(type default)
 		)
 		(uuid "7c22146c-f356-4054-a8f4-8f9f3a883083")
+	)
+	(wire
+		(pts
+			(xy 99.06 54.61) (xy 107.95 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "80969fd9-22e8-444e-855b-b887d6d6a270")
 	)
 	(wire
 		(pts
@@ -4908,7 +4908,7 @@
 		(uuid "61d52adb-bdb7-45db-bb2e-7f2e0c59c137")
 	)
 	(label "SERVO1"
-		(at 107.95 59.69 180)
+		(at 107.95 57.15 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -4941,7 +4941,7 @@
 		(uuid "66686fb2-307e-4552-b094-fbe989e6e026")
 	)
 	(label "SERVO0"
-		(at 107.95 57.15 180)
+		(at 107.95 54.61 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
