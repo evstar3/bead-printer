@@ -49,20 +49,15 @@ def main():
         print(f'fusejet: error: image path does not specify a regular file: {image_path}')
         sys.exit(1)
 
-    ser = Serial()
     if __debug__:
-        def debug_read(n):
-            return sys.stdin.buffer.read(n)
-        def debug_write(data):
-            print(str(data))
-
-        ser.read  = debug_read
-        ser.write = debug_write
+        ser = comms.DebugSerial()
+    else:
+        ser = Serial()
 
     job = print_job.PrintJob(args.image_path, args.width, args.height, ser)
 
     if job.confirm():
-        job.arduino_controller.start()
+        job.start()
     else:
         sys.exit(0)
 

@@ -8,21 +8,30 @@ import itertools
 from fusejet.comms import ArduinoController
 
 class PrintJob():
-    COLOR_LIST = [
-    #    V  B  G  Y  O  R
-        (0, 0, 0, 0, 0, 0),
-    ]
-
+    
     def __init__(self, image_fp, width, height, serial) -> None:
-        self.arduino_controller = ArduinoController(serial)
+        self.controller = ArduinoController(serial)
+        self.initialize_job_state(image_fp, width, height)
+        print(self.prepared_image.palette.colors)
 
-        im = Image.open(image_fp)
-        im = im.resize((width, height))
-        im = im.convert('RGBA')
-        im = im.quantize(
-            colors=30,
-            dither=Image.Dither.NONE
-        )
+    def initialize_job_state(self, image_fp, width, height):
+        self.pos = (0, 0)
+        self.placed = {}
+
+        self.prepared_image = self.prepare_image(image_fp, width, height)
+
+        # initialize to_place collection
+        self.to_place = defaultdict(set)
+        for row in range(self.prepared_image.height):
+            for col in range(self.prepared_image.width):
+                color = self.prepared_image.getpixel((row, col))
+
+                # only want to place non-transparent colors
+                if color != self.prepared_image.info['transparency']:
+                    self.to_place[color].add((row, col))
+
+    def prepare_image(self, image_fp, width, height):
+        im = Image.open(image_fp).resize((width, height)).convert('RGBA').quantize(colors=30, dither=Image.Dither.NONE)
 
         # find an unused color in the palette to use as the transparent color
         # probability of collision = (1 / 256) ** 2
@@ -51,20 +60,12 @@ class PrintJob():
         new_data = [val if color_by_index[val][3] > cutoff else im.info['transparency'] for val in im.getdata()]
         im.putdata(new_data)
 
-        self.prepared_image = im
+        im.putpalette(new_palette)
 
-        self.to_place = defaultdict(set)
-        self.placed   = {}
+        return im
 
-        for row in range(self.prepared_image.height):
-            for col in range(self.prepared_image.width):
-                color = im.getpixel((row, col))
-
-                # only want to place non-transparent colors
-                if color != im.info['transparency']:
-                    self.to_place[color].add((row, col))
-
-        self.pos = (0, 0)
+    def start(self):
+        self.controller.start()
 
     def confirm(self) -> bool:
         print('fusejet: showing prepared image')
@@ -78,30 +79,27 @@ class PrintJob():
         assert len(a) == len(b)
         return sum((ax - bx) ** 2 for ax, bx in zip(a, b))
 
-    def classify_color(self, color: tuple[int, int, int]) -> int | None:
-        min_index, min_dist = min(((i, PrintJob.euclidean_distance(color, c)) for i, c in enumerate(self.palette)), key=lambda x: x[1])
-
-        print(min_dist)
+    def classify_color(self, color) -> int | None:
+        distance, kvp = min((PrintJob.euclidean_distance(kvp[0], color), kvp) for kvp in self.prepared_image.palette.colors.items())
+        print(color, distance)
 
         cutoff = 100
-        if min_dist < cutoff:
-            return min_index
 
-        return None
+        return kvp[1] if distance < cutoff else None
 
     def is_done(self):
         return len(self.to_place) == 0
 
     def place_bead(self):
-        color = self.arduino_controller.read_color()
+        color = self.controller.read_color()
 
         palette_index = self.classify_color(color)
 
         if (palette_index is None) or (palette_index not in self.to_place):
-            self.arduino_controller.reject()
+            self.controller.reject()
         else: 
             placement = min(self.to_place[palette_index], key=lambda x: PrintJob.euclidean_distance(x, self.pos))
-            self.arduino_controller.drop(placement)
+            self.controller.drop(placement)
 
             self.placed[placement] = palette_index
             self.to_place[palette_index].remove(placement)
