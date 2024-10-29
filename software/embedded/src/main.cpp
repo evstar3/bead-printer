@@ -125,9 +125,8 @@ void parseSerial() {
     break;
     // 2: move to <x, y [bead indices]>, drop bead
   case 2: {
-    if (Serial.available() != 2) {
-      break;
-    }
+    while (Serial.available() < 2)
+        ;
 
     uint8_t x = Serial.read();
     uint8_t y = Serial.read();
