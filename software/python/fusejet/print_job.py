@@ -8,7 +8,6 @@ import itertools
 from fusejet.comms import ArduinoController
 
 class PrintJob():
-    
     def __init__(self, image_fp, width, height, serial) -> None:
         self.controller = ArduinoController(serial)
         self.initialize_job_state(image_fp, width, height)
