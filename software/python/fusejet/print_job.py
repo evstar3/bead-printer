@@ -6,12 +6,12 @@ import random
 import itertools
 
 from fusejet.comms import ArduinoController
+from fusejet.color import spectrum_to_sRGB
 
 class PrintJob():
     def __init__(self, image_fp, width, height, serial) -> None:
         self.controller = ArduinoController(serial)
         self.initialize_job_state(image_fp, width, height)
-        print(self.prepared_image.palette.colors)
 
     def initialize_job_state(self, image_fp, width, height):
         self.pos = (0, 0)
@@ -90,7 +90,8 @@ class PrintJob():
         return len(self.to_place) == 0
 
     def place_bead(self):
-        color = self.controller.read_color()
+        spectrum = self.controller.read_spectrum()
+        color = spectrum_to_sRGB(spectrum)
 
         palette_index = self.classify_color(color)
 

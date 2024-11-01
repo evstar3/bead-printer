@@ -3,7 +3,6 @@
 # Serial.write(...) sends LSB first -> little endian
 
 import struct
-from fusejet.color import sensor_data_to_sRGB
 
 class ArduinoController():
     def __init__(self, serial):
@@ -21,20 +20,23 @@ class ArduinoController():
     def reject(self):
         self.serial.write(struct.pack("B", 3))
 
-    def read_color(self):
+    def read_spectrum(self):
         float_bytes = self.serial.read(24)
         raw = struct.unpack('<ffffff', float_bytes)
 
+        # total = 1
+        total = sum(raw)
+
         data = {
-            650: raw[0],
-            600: raw[1],
-            570: raw[2],
-            550: raw[3],
-            500: raw[4],
-            450: raw[5],
+            450: raw[0] / total,
+            500: raw[1] / total,
+            550: raw[2] / total,
+            570: raw[3] / total,
+            600: raw[4] / total,
+            650: raw[5] / total,
         }
 
-        return sensor_data_to_sRGB(data)
+        return data
 
 class DebugSerial():
     def read(self, length):

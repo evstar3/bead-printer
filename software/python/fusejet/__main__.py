@@ -20,6 +20,10 @@ def main():
 
     parser.add_argument('image_path')
     parser.add_argument(
+        '-p', '--port',
+        type=str
+    )
+    parser.add_argument(
         '-W', '--width',
         default=MAX_WIDTH,
         type=int
@@ -49,10 +53,10 @@ def main():
         print(f'fusejet: error: image path does not specify a regular file: {image_path}')
         sys.exit(1)
 
-    if __debug__:
-        ser = comms.DebugSerial()
+    if args.port:
+        ser = Serial(port=args.port, baudrate=115200)
     else:
-        ser = Serial()
+        ser = comms.DebugSerial()
 
     job = print_job.PrintJob(args.image_path, args.width, args.height, ser)
 
