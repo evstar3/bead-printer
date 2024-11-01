@@ -30,7 +30,7 @@ Servo servo0;
 Adafruit_AS726x colorSensor;
 
 // # global state
-bool beadGearOn = false;
+volatile bool beadGearOn = false;
 int8_t currentX = 0, currentY = 0;
 
 void stepperInit() {
@@ -145,9 +145,29 @@ void parseSerial() {
   }
 }
 
-// TODO: this needs to be a timer interrupt
 void updateBeadGearStepper() {
-  // TODO: this
+
+  if (!beadGearOn)
+    return;
+
+  // triggered by rising edge
+  digitalWrite(STEP0_PIN, HIGH);
+
+  // wait a bit for the step to trigger
+  // because possibly in ISR, need to use this (doesn't rely on interrupts)
+  delayMicroseconds(10000);
+
+  // go back to low state
+  digitalWrite(STEP0_PIN, LOW);
+}
+
+// ISR for Timer0
+SIGNAL(TIMER0_COMPA_vect) {
+  // unsigned long currentMillis = millis();
+  digitalWrite(13, !digitalRead(13));
+
+  // TODO: this should trigger
+  // updateBeadGearStepper();
 }
 
 void setup() {
@@ -155,10 +175,16 @@ void setup() {
   Serial.begin(115200);
 
   // Initialize stepper motors
-  stepperInit();
+  // stepperInit();
+  // set timer ISR for 100 Hz for updateBeadGearStepper
+  // https://learn.adafruit.com/multi-tasking-the-arduino-part-2/timers
+  // Timer0 is already used for millis() - we'll just interrupt somewhere
+  // in the middle and call the "Compare A" function below
+  OCR0A = 0xAF;
+  TIMSK0 |= _BV(OCIE0A);
 
   // Initialize servo
-  servoInit();
+  // servoInit();
 
   // Initialize color sensor
   colorSensorInit();
@@ -167,21 +193,18 @@ void setup() {
 void loop() {
   float colorSensorData[AS726x_NUM_CHANNELS];
 
-  while (true) {
-    // colorSensor.startMeasurement(); // begin a measurement
-    // TODO: ^^ ideally it's in continuous mode?
+  // colorSensor.startMeasurement(); // begin a measurement
+  // TODO: ^^ ideally it's in continuous mode?
 
-    // wait till data is available
-    while (!colorSensor.dataReady())
-      delay(5);
+  // wait till data is available
+  while (!colorSensor.dataReady())
+    delay(5);
 
-    colorSensor.readCalibratedValues(colorSensorData);
+  colorSensor.readCalibratedValues(colorSensorData);
 
-    // send the color values as raw bytes (6 x f32)
-    Serial.write((uint8_t *)colorSensorData,
-                 sizeof(float) * AS726x_NUM_CHANNELS);
+  // send the color values as raw bytes (6 x f32)
+  Serial.write((uint8_t *)colorSensorData, sizeof(float) * AS726x_NUM_CHANNELS);
 
-    // this blocks on a response
-    parseSerial();
-  }
+  // this blocks on a response
+  parseSerial();
 }
