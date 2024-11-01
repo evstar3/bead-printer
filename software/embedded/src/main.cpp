@@ -1,5 +1,8 @@
 #include "Adafruit_AS726x.h"
 #include "Arduino.h"
+#include "pins_arduino.h"
+#include <Wire.h>
+
 #include "Servo.h"
 
 // # pins
@@ -26,7 +29,6 @@
 
 // # objects
 Servo servo0;
-// Servo servo1;
 Adafruit_AS726x colorSensor;
 
 // # global state
@@ -70,6 +72,18 @@ void stepperInit() {
 void servoInit() {
   // Attach the servo object to the pin
   servo0.attach(SERVO0_PIN);
+
+  // sweep twice?
+  int pos = 0;
+  for (pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
+    // in steps of 1 degree
+    servo0.write(pos); // tell servo to go to position in variable 'pos'
+    delay(15);         // waits 15 ms for the servo to reach the position
+  }
+  for (pos = 180; pos >= 0; pos -= 1) { // goes from 180 degrees to 0 degrees
+    servo0.write(pos); // tell servo to go to position in variable 'pos'
+    delay(15);         // waits 15 ms for the servo to reach the position
+  }
 
   // Set initial servo position
   servo0.write(NEUTRAL_ANGLE);
@@ -126,7 +140,7 @@ void parseSerial() {
     // 2: move to <x, y [bead indices]>, drop bead
   case 2: {
     while (Serial.available() < 2)
-        ;
+      ;
 
     uint8_t x = Serial.read();
     uint8_t y = Serial.read();
@@ -161,39 +175,60 @@ void updateBeadGearStepper() {
   digitalWrite(STEP0_PIN, LOW);
 }
 
-// ISR for Timer0
-SIGNAL(TIMER0_COMPA_vect) {
-  // unsigned long currentMillis = millis();
-  digitalWrite(13, !digitalRead(13));
+volatile bool on = false;
 
-  // TODO: this should trigger
+// ISR for Timer1.A
+ISR(TIMER1_COMPA_vect) {
+  on = !on;
+  digitalWrite(LED_BUILTIN, on);
+
   // updateBeadGearStepper();
 }
 
 void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+
   // Initialize serial communication
   Serial.begin(115200);
 
   // Initialize stepper motors
-  // stepperInit();
+  stepperInit();
   // set timer ISR for 100 Hz for updateBeadGearStepper
-  // https://learn.adafruit.com/multi-tasking-the-arduino-part-2/timers
-  // Timer0 is already used for millis() - we'll just interrupt somewhere
-  // in the middle and call the "Compare A" function below
-  OCR0A = 0xAF;
-  TIMSK0 |= _BV(OCIE0A);
+
+  // Initialize Timer1 for 100 Hz interrupts
+  cli(); // Disable global interrupts
+  // Clear configs
+  TCCR1A = 0; // Set entire TCCR1A register to 0
+  TCCR1B = 0; // Same for TCCR1B
+  TCNT1 = 0;  // Initialize counter value to 0
+  // Set compare match register to desired timer count
+  // f = 16 MHz / (prescaler * (1 + OCR1A))
+  // => OCR1A = 16 Mhz / F / prescaler - 1
+  // 15624 gives 1 Hz
+  // 1562 gives 10 Hz (9.9968)
+  OCR1A = 1562; // Set compare match register for 10 Hz increments
+  // Turn on CTC mode (Clear Timer on Compare match)
+  TCCR1B |= (1 << WGM12);
+  // Set CS12 and CS10 bits for 1024 prescaler
+  TCCR1B |= (1 << CS12) | (1 << CS10);
+  // Enable timer compare interrupt
+  TIMSK1 |= (1 << OCIE1A);
+  // Reenable global interrupts
+  sei();
 
   // Initialize servo
-  // servoInit();
+  servoInit();
 
   // Initialize color sensor
   colorSensorInit();
+
+  Serial.println("Setup done!");
 }
 
 void loop() {
   float colorSensorData[AS726x_NUM_CHANNELS];
 
-  // colorSensor.startMeasurement(); // begin a measurement
+  colorSensor.startMeasurement(); // begin a measurement
   // TODO: ^^ ideally it's in continuous mode?
 
   // wait till data is available
@@ -206,5 +241,5 @@ void loop() {
   Serial.write((uint8_t *)colorSensorData, sizeof(float) * AS726x_NUM_CHANNELS);
 
   // this blocks on a response
-  parseSerial();
+  // parseSerial();
 }
