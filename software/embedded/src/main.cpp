@@ -24,15 +24,14 @@
 // # physical constants
 #define NEUTRAL_ANGLE 0 // TODO: figure out actual value
 #define DROP_ANGLE 180  // TODO: figure out actual value
-#define DROP_X 10       // TODO: figure out actual value
-#define DROP_Y 10       // TODO: figure out actual value
+#define REJECT_X 10     // TODO: figure out actual value
+#define REJECT_Y 10     // TODO: figure out actual value
 
 // # objects
 Servo servo0;
 Adafruit_AS726x colorSensor;
 
 // # global state
-volatile bool beadGearOn = false;
 int8_t currentX = 0, currentY = 0;
 
 void stepperInit() {
@@ -64,6 +63,7 @@ void stepperInit() {
   digitalWrite(DIR2_PIN, LOW);
 
   // set STEP to 0
+  // triggered by rising edge
   digitalWrite(STEP0_PIN, LOW);
   digitalWrite(STEP1_PIN, LOW);
   digitalWrite(STEP2_PIN, LOW);
@@ -87,6 +87,38 @@ void servoInit() {
 
   // Set initial servo position
   servo0.write(NEUTRAL_ANGLE);
+}
+
+void toggleBeadGearStepper(bool on) {
+  cli(); // Disable global interrupts
+  if (on) {
+    // Initialize Timer1 for 100 Hz interrupts
+    // Clear configs
+    TCCR1A = 0; // Set entire TCCR1A register to 0
+    TCCR1B = 0; // Same for TCCR1B
+    TCNT1 = 0;  // Initialize counter value to 0
+    // Set compare match register to desired timer count
+    // f = 16 MHz / (prescaler * (1 + OCR1A))
+    // => OCR1A = 16 Mhz / F / prescaler - 1
+    // 15624 gives 1 Hz
+    // 1562 gives 10 Hz (9.9968)
+    OCR1A = 1562; // Set compare match register for 10 Hz increments
+    // Turn on CTC mode (Clear Timer on Compare match)
+    TCCR1B |= (1 << WGM12);
+    // Set CS12 and CS10 bits for 1024 prescaler
+    TCCR1B |= (1 << CS12) | (1 << CS10);
+    // Enable timer compare interrupt
+    TIMSK1 |= (1 << OCIE1A);
+
+  } else {
+    // disable the timer
+    // clear configs
+    TCCR1A = 0;               // Set entire TCCR1A register to 0
+    TCCR1B = 0;               // Same for TCCR1B
+    TCNT1 = 0;                // Initialize counter value to 0
+    TIMSK1 &= ~(1 << OCIE1A); // disable the interrupt
+  }
+  sei(); // Reenable global interrupts
 }
 
 void colorSensorInit() {
@@ -131,17 +163,18 @@ void parseSerial() {
   switch (buf) {
   // 0: start bead gear
   case 0:
-    beadGearOn = true;
+    toggleBeadGearStepper(true);
     break;
   // 1: stop bead gear
   case 1:
-    beadGearOn = false;
+    toggleBeadGearStepper(false);
     break;
     // 2: move to <x, y [bead indices]>, drop bead
   case 2: {
     while (Serial.available() < 2)
       ;
 
+    // these are bead indices
     uint8_t x = Serial.read();
     uint8_t y = Serial.read();
 
@@ -153,17 +186,13 @@ void parseSerial() {
   }
   // 3: reject bead
   case 3:
-    moveTo(DROP_X, DROP_Y);
+    moveTo(REJECT_X, REJECT_Y);
     dropRoutine();
     break;
   }
 }
 
 void updateBeadGearStepper() {
-
-  if (!beadGearOn)
-    return;
-
   // triggered by rising edge
   digitalWrite(STEP0_PIN, HIGH);
 
@@ -193,28 +222,6 @@ void setup() {
 
   // Initialize stepper motors
   stepperInit();
-  // set timer ISR for 100 Hz for updateBeadGearStepper
-
-  // Initialize Timer1 for 100 Hz interrupts
-  cli(); // Disable global interrupts
-  // Clear configs
-  TCCR1A = 0; // Set entire TCCR1A register to 0
-  TCCR1B = 0; // Same for TCCR1B
-  TCNT1 = 0;  // Initialize counter value to 0
-  // Set compare match register to desired timer count
-  // f = 16 MHz / (prescaler * (1 + OCR1A))
-  // => OCR1A = 16 Mhz / F / prescaler - 1
-  // 15624 gives 1 Hz
-  // 1562 gives 10 Hz (9.9968)
-  OCR1A = 1562; // Set compare match register for 10 Hz increments
-  // Turn on CTC mode (Clear Timer on Compare match)
-  TCCR1B |= (1 << WGM12);
-  // Set CS12 and CS10 bits for 1024 prescaler
-  TCCR1B |= (1 << CS12) | (1 << CS10);
-  // Enable timer compare interrupt
-  TIMSK1 |= (1 << OCIE1A);
-  // Reenable global interrupts
-  sei();
 
   // Initialize servo
   servoInit();
