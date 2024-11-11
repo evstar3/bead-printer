@@ -39,6 +39,12 @@ class ArduinoController():
         return data
 
 class DebugSerial():
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        pass
+
     def read(self, length):
         return struct.pack('<ffffff', *map(float, input('spectral distribution (violet to red): ').split()))
 

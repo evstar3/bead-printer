@@ -54,21 +54,24 @@ def main():
         sys.exit(1)
 
     if args.port:
-        ser = Serial(port=args.port, baudrate=115200)
+        SerialClass = Serial
+        ser_args = {'port': args.port, 'baudrate': 115200}
     else:
-        ser = comms.DebugSerial()
+        SerialClass = comms.DebugSerial
+        ser_args = {}
 
-    job = print_job.PrintJob(args.image_path, args.width, args.height, ser)
+    with SerialClass(**ser_args) as ser:
+        job = print_job.PrintJob(args.image_path, args.width, args.height, ser)
 
-    if job.confirm():
-        job.start()
-    else:
-        sys.exit(0)
+        if job.confirm():
+            job.start()
+        else:
+            sys.exit(0)
 
-    while not job.is_done():
-        job.place_bead()
+        while not job.is_done():
+            job.place_bead()
 
-    job.arduino_controller.stop()
+        job.arduino_controller.stop()
 
 if __name__ == '__main__':
     main()
