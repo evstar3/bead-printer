@@ -14,9 +14,9 @@
 #define DIR0_PIN 30
 #define DIR1_PIN 31
 #define DIR2_PIN 32
-#define STEP0_PIN 9
-#define STEP1_PIN 10
-#define STEP2_PIN 11
+#define STEP0_PIN 9  // bead gear
+#define STEP1_PIN 10 // x axis
+#define STEP2_PIN 11 // y axis
 // ## servos
 #define SERVO0_PIN 5
 #define SERVO1_PIN 6
@@ -26,13 +26,19 @@
 #define DROP_ANGLE 180  // TODO: figure out actual value
 #define REJECT_X 10     // TODO: figure out actual value
 #define REJECT_Y 10     // TODO: figure out actual value
+#define MM_PER_BEAD 6   // TODO: figure out actual value
+#define STEP_DELAY_MS 5 // TODO: figure out actual value
+// 5mm per revolution, 1.8 degrees per step => 200 steps per revolution
+// => 40 steps per mm
+#define STEPS_PER_MM 40
 
 // # objects
 Servo servo0;
 Adafruit_AS726x colorSensor;
 
 // # global state
-int8_t currentX = 0, currentY = 0;
+int8_t currentX = 0,
+       currentY = 0; // bead indices (not more than 60? in each direction)
 
 void stepperInit() {
   // Configure stepper motor pins as output
@@ -90,6 +96,7 @@ void servoInit() {
 }
 
 void toggleBeadGearStepper(bool on) {
+  digitalWrite(13, on);
   cli(); // Disable global interrupts
   if (on) {
     // Initialize Timer1 for 100 Hz interrupts
@@ -100,9 +107,11 @@ void toggleBeadGearStepper(bool on) {
     // Set compare match register to desired timer count
     // f = 16 MHz / (prescaler * (1 + OCR1A))
     // => OCR1A = 16 Mhz / F / prescaler - 1
-    // 15624 gives 1 Hz
-    // 1562 gives 10 Hz (9.9968)
-    OCR1A = 1562; // Set compare match register for 10 Hz increments
+    // 16383 gives 1 Hz
+    // 1637 gives 10 Hz
+    // 162 gives 100 Hz
+    OCR1A = 1637; // Set compare match register for 10 Hz increments
+    // OCR1A = 162; // Set compare match register for 10 Hz increments
     // Turn on CTC mode (Clear Timer on Compare match)
     TCCR1B |= (1 << WGM12);
     // Set CS12 and CS10 bits for 1024 prescaler
@@ -136,7 +145,56 @@ void colorSensorInit() {
 
 // operates on bead indices
 void moveTo(uint8_t x, uint8_t y) {
-  // TODO: this
+  // Check if there's any movement needed
+  if (x == currentX && y == currentY) {
+    return;
+  }
+
+  // Calculate the number of steps for each axis
+  int16_t stepsX = (x - currentX) * MM_PER_BEAD * STEPS_PER_MM;
+  int16_t stepsY = (y - currentY) * MM_PER_BEAD * STEPS_PER_MM;
+
+  // Adjust direction if needed (uncomment to reverse direction)
+  // stepsX *= -1;
+  // stepsY *= -1;
+
+  // Perform the movement
+  // handle both axes simulataneously
+  digitalWrite(DIR1_PIN, stepsX > 0);
+  digitalWrite(DIR2_PIN, stepsY > 0);
+  while (stepsX != 0 && stepsY != 0) {
+    // steps
+    digitalWrite(STEP1_PIN, HIGH);
+    digitalWrite(STEP2_PIN, HIGH);
+    // wait a bit
+    delay(STEP_DELAY_MS);
+    // reset
+    digitalWrite(STEP1_PIN, LOW);
+    digitalWrite(STEP2_PIN, LOW);
+    // change counter
+    stepsX -= stepsX > 0 ? 1 : -1;
+    stepsY -= stepsY > 0 ? 1 : -1;
+  }
+  // x axis only
+  digitalWrite(DIR1_PIN, stepsX > 0);
+  while (stepsX != 0) {
+    digitalWrite(STEP1_PIN, HIGH);
+    delay(STEP_DELAY_MS);
+    digitalWrite(STEP1_PIN, LOW);
+    stepsX -= stepsX > 0 ? 1 : -1;
+  }
+  // y axis only
+  digitalWrite(DIR2_PIN, stepsY > 0);
+  while (stepsY != 0) {
+    digitalWrite(STEP2_PIN, HIGH);
+    delay(STEP_DELAY_MS);
+    digitalWrite(STEP2_PIN, LOW);
+    stepsY -= stepsY > 0 ? 1 : -1;
+  }
+
+  // Update current position
+  currentX = x;
+  currentY = y;
 }
 
 void dropRoutine() {
@@ -192,7 +250,8 @@ void parseSerial() {
   }
 }
 
-void updateBeadGearStepper() {
+// void updateBeadGearStepper() {
+ISR(TIMER1_COMPA_vect) {
   // triggered by rising edge
   digitalWrite(STEP0_PIN, HIGH);
 
@@ -204,49 +263,42 @@ void updateBeadGearStepper() {
   digitalWrite(STEP0_PIN, LOW);
 }
 
-volatile bool on = false;
-
-// ISR for Timer1.A
-ISR(TIMER1_COMPA_vect) {
-  on = !on;
-  digitalWrite(LED_BUILTIN, on);
-
-  // updateBeadGearStepper();
-}
-
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
 
   // Initialize serial communication
   Serial.begin(115200);
+  delay(1000);
+  Serial.println("hello");
 
   // Initialize stepper motors
   stepperInit();
 
   // Initialize servo
-  servoInit();
+  // servoInit();
 
   // Initialize color sensor
-  colorSensorInit();
+  // colorSensorInit();
 
   Serial.println("Setup done!");
 }
 
 void loop() {
-  float colorSensorData[AS726x_NUM_CHANNELS];
-
-  colorSensor.startMeasurement(); // begin a measurement
-  // TODO: ^^ ideally it's in continuous mode?
-
-  // wait till data is available
-  while (!colorSensor.dataReady())
-    delay(5);
-
-  colorSensor.readCalibratedValues(colorSensorData);
-
-  // send the color values as raw bytes (6 x f32)
-  Serial.write((uint8_t *)colorSensorData, sizeof(float) * AS726x_NUM_CHANNELS);
+  // float colorSensorData[AS726x_NUM_CHANNELS];
+  //
+  // colorSensor.startMeasurement(); // begin a measurement
+  // // TODO: ^^ ideally it's in continuous mode?
+  //
+  // // wait till data is available
+  // while (!colorSensor.dataReady())
+  //   delay(5);
+  //
+  // colorSensor.readCalibratedValues(colorSensorData);
+  //
+  // // send the color values as raw bytes (6 x f32)
+  // Serial.write((uint8_t *)colorSensorData, sizeof(float) *
+  // AS726x_NUM_CHANNELS);
 
   // this blocks on a response
-  // parseSerial();
+  parseSerial();
 }
