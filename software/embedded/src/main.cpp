@@ -60,8 +60,8 @@ void stepperInit() {
   digitalWrite(DMODE1_PIN, LOW);
   digitalWrite(DMODE2_PIN, HIGH);
 
-  // set STEPEN to 0
-  digitalWrite(STEPEN_PIN, LOW);
+  // set STEPEN to 1
+  digitalWrite(STEPEN_PIN, HIGH);
 
   // set DIRs all 0
   digitalWrite(DIR0_PIN, LOW);
@@ -96,7 +96,7 @@ void servoInit() {
 }
 
 void toggleBeadGearStepper(bool on) {
-  digitalWrite(13, on);
+  // digitalWrite(13, on);
   cli(); // Disable global interrupts
   if (on) {
     // Initialize Timer1 for 100 Hz interrupts
@@ -250,17 +250,12 @@ void parseSerial() {
   }
 }
 
+volatile bool beadGearStepValue = 0;
 // void updateBeadGearStepper() {
 ISR(TIMER1_COMPA_vect) {
-  // triggered by rising edge
-  digitalWrite(STEP0_PIN, HIGH);
-
-  // wait a bit for the step to trigger
-  // because possibly in ISR, need to use this (doesn't rely on interrupts)
-  delayMicroseconds(10000);
-
-  // go back to low state
-  digitalWrite(STEP0_PIN, LOW);
+  digitalWrite(STEP0_PIN, beadGearStepValue);
+  digitalWrite(13, beadGearStepValue);
+  beadGearStepValue = !beadGearStepValue;
 }
 
 void setup() {
