@@ -6,6 +6,9 @@
 #include "Servo.h"
 
 // # pins
+// ## photoresistor
+// this gets dealt with as if it's part of the color sensor
+#define PHOTORESISTOR_PIN A0
 // ## steppers
 #define DMODE0_PIN 26
 #define DMODE1_PIN 27
@@ -131,6 +134,14 @@ void colorSensorInit() {
 
   // colorSensor.drvOn();
   colorSensor.indicateLED(true);
+
+  // set up photoresistor
+  pinMode(PHOTORESISTOR_PIN, INPUT);
+  // default to 10 bit resolution
+  for (int i = 0; i < 10; i++) {
+    analogRead(PHOTORESISTOR_PIN);
+    delay(10);
+  }
 }
 
 void toggleBeadGearStepper(bool on) {
@@ -370,20 +381,26 @@ void setup() {
 }
 
 void loop() {
-  // float colorSensorData[AS726x_NUM_CHANNELS];
-  //
-  // colorSensor.startMeasurement(); // begin a measurement
-  // // TODO: ^^ ideally it's in continuous mode?
-  //
-  // // wait till data is available
-  // while (!colorSensor.dataReady())
-  //   delay(5);
-  //
-  // colorSensor.readCalibratedValues(colorSensorData);
-  //
-  // // send the color values as raw bytes (6 x f32)
-  // Serial.write((uint8_t *)colorSensorData, sizeof(float) *
-  // AS726x_NUM_CHANNELS);
+  uint8_t sendBuf[sizeof(int) + sizeof(float) * AS726x_NUM_CHANNELS];
+  int photoresistorData;
+  float colorSensorData[AS726x_NUM_CHANNELS];
+
+  // read analog value from photoresistor, store in sendBuf
+  photoresistorData = analogRead(PHOTORESISTOR_PIN);
+  memcpy(sendBuf, &photoresistorData, sizeof(int));
+
+  // read color sensor data, store in sendBuf
+  colorSensor.startMeasurement();
+
+  // wait till data is available
+  while (!colorSensor.dataReady())
+    delay(5);
+  colorSensor.readCalibratedValues(colorSensorData);
+  // copy the color values as raw bytes (6 x f32)
+  memcpy(sendBuf + sizeof(int), colorSensorData,
+         sizeof(float) * AS726x_NUM_CHANNELS);
+
+  Serial.write(sendBuf, sizeof(sendBuf));
 
   // this blocks on a response
   parseSerial();
