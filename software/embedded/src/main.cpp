@@ -27,8 +27,8 @@
 #define SERVO1_PIN 6
 
 // # physical constants
-#define NEUTRAL_ANGLE 0  // TODO: figure out actual value
-#define DROP_ANGLE 180   // TODO: figure out actual value
+#define NEUTRAL_ANGLE 180
+#define DROP_ANGLE 48
 #define REJECT_X 10      // TODO: figure out actual value
 #define REJECT_Y 10      // TODO: figure out actual value
 #define MM_PER_BEAD 6    // TODO: figure out actual value
@@ -343,6 +343,8 @@ void parseSerial() {
     moveToBead(REJECT_X, REJECT_Y);
     dropRoutine();
     break;
+  default:
+    break;
   }
 }
 
@@ -368,10 +370,10 @@ void setup() {
   stepperInit();
 
   // Initialize servo
-  // servoInit();
+  servoInit();
 
   // Initialize color sensor
-  // colorSensorInit();
+  colorSensorInit();
 
   // Home X and Y axes
   homeAxes();
