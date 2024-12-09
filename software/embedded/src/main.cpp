@@ -40,6 +40,7 @@
 #define STEPS_PER_MM 40
 // #define FLIP_X
 // #define FLIP_Y
+#define BEAD_PHOTORESISTOR_THRESHOLD 500 // TODO: figure out actual value
 
 // # objects
 Servo servo0;
@@ -383,13 +384,13 @@ void setup() {
 }
 
 void loop() {
-  uint8_t sendBuf[sizeof(int) + sizeof(float) * AS726x_NUM_CHANNELS];
-  int photoresistorData;
   float colorSensorData[AS726x_NUM_CHANNELS];
 
-  // read analog value from photoresistor, store in sendBuf
-  photoresistorData = analogRead(PHOTORESISTOR_PIN);
-  memcpy(sendBuf, &photoresistorData, sizeof(int));
+  // read analog value from photoresistor
+  // while it's larger than the threshold, keep looping
+  // (lack of bead means more light hits it)
+  while (analogRead(PHOTORESISTOR_PIN) > BEAD_PHOTORESISTOR_THRESHOLD)
+    delay(5);
 
   // read color sensor data, store in sendBuf
   colorSensor.startMeasurement();
@@ -398,11 +399,9 @@ void loop() {
   while (!colorSensor.dataReady())
     delay(5);
   colorSensor.readCalibratedValues(colorSensorData);
-  // copy the color values as raw bytes (6 x f32)
-  memcpy(sendBuf + sizeof(int), colorSensorData,
-         sizeof(float) * AS726x_NUM_CHANNELS);
 
-  Serial.write(sendBuf, sizeof(sendBuf));
+  // send the color values as raw bytes (6 x f32)
+  Serial.write((uint8_t *)colorSensorData, sizeof(colorSensorData));
 
   // this blocks on a response
   parseSerial();
