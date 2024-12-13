@@ -31,7 +31,8 @@
 #define MM_PER_BEAD 6    // TODO: figure out actual value
 #define BEAD_OFFSET_X 10 // TODO: figure out actual value
 #define BEAD_OFFSET_Y 10 // TODO: figure out actual value
-#define STEP_DELAY_US 2000
+#define HOMING_STEP_DELAY_US 2000
+#define STEP_DELAY_US 1000
 // 5mm per revolution, 1.8 degrees per step => 200 steps per revolution
 // => 40 steps per mm
 #define STEPS_PER_MM 40
@@ -193,24 +194,24 @@ void homeAxes() {
     digitalWrite(axisConfig[0], HIGH);
     while (digitalRead(axisConfig[2]) == HIGH) {
       digitalWrite(axisConfig[1], HIGH);
-      delayMicroseconds(STEP_DELAY_US);
+      delayMicroseconds(HOMING_STEP_DELAY_US);
       digitalWrite(axisConfig[1], LOW);
-      delayMicroseconds(STEP_DELAY_US);
+      delayMicroseconds(HOMING_STEP_DELAY_US);
     }
     // now back off 5mm
     digitalWrite(axisConfig[0], LOW);
     for (int i = 0; i < 5 * STEPS_PER_MM; i++) {
       digitalWrite(axisConfig[1], HIGH);
-      delayMicroseconds(STEP_DELAY_US);
+      delayMicroseconds(HOMING_STEP_DELAY_US);
       digitalWrite(axisConfig[1], LOW);
-      delayMicroseconds(STEP_DELAY_US);
+      delayMicroseconds(HOMING_STEP_DELAY_US);
     }
     digitalWrite(axisConfig[0], HIGH);
     while (digitalRead(axisConfig[2]) == HIGH) {
       digitalWrite(axisConfig[1], HIGH);
-      delayMicroseconds(STEP_DELAY_US * 2);
+      delayMicroseconds(HOMING_STEP_DELAY_US * 2);
       digitalWrite(axisConfig[1], LOW);
-      delayMicroseconds(STEP_DELAY_US * 2);
+      delayMicroseconds(HOMING_STEP_DELAY_US * 2);
     }
   }
 
@@ -237,15 +238,17 @@ void moveTo(double x, double y) {
   }
 
   // Calculate the number of steps for each axis
-  int16_t stepsX = (x - currentX) * STEPS_PER_MM;
-  int16_t stepsY = (y - currentY) * STEPS_PER_MM;
-
-  // Adjust direction if needed (uncomment to reverse direction)
+  // Adjust direction if needed (change #define's to reverse direction)
 #ifdef FLIP_X
-  stepsX *= -1;
+  int16_t stepsX = (x + currentX) * STEPS_PER_MM;
+  // that's the flipped one
+#else
+  int16_t stepsX = (x - currentX) * STEPS_PER_MM;
 #endif
 #ifdef FLIP_Y
-  stepsY *= -1;
+  int16_t stepsY = (y + currentY) * STEPS_PER_MM;
+#else
+  int16_t stepsY = (y - currentY) * STEPS_PER_MM;
 #endif
 
   // Perform the movement
@@ -261,6 +264,8 @@ void moveTo(double x, double y) {
     // reset
     digitalWrite(STEP1_PIN, LOW);
     digitalWrite(STEP2_PIN, LOW);
+    // wait a bit
+    delayMicroseconds(STEP_DELAY_US);
     // change counter
     stepsX -= stepsX > 0 ? 1 : -1;
     stepsY -= stepsY > 0 ? 1 : -1;
@@ -271,6 +276,7 @@ void moveTo(double x, double y) {
     digitalWrite(STEP1_PIN, HIGH);
     delayMicroseconds(STEP_DELAY_US);
     digitalWrite(STEP1_PIN, LOW);
+    delayMicroseconds(STEP_DELAY_US);
     stepsX -= stepsX > 0 ? 1 : -1;
   }
   // y axis only
@@ -279,6 +285,7 @@ void moveTo(double x, double y) {
     digitalWrite(STEP2_PIN, HIGH);
     delayMicroseconds(STEP_DELAY_US);
     digitalWrite(STEP2_PIN, LOW);
+    delayMicroseconds(STEP_DELAY_US);
     stepsY -= stepsY > 0 ? 1 : -1;
   }
 
@@ -339,7 +346,9 @@ void parseSerial() {
   }
   // 3: reject bead
   case 3:
-    moveToBead(REJECT_X, REJECT_Y);
+    // i'm too lazy to write a new function just to move on the x axis
+    // so this'll work.
+    moveTo(REJECT_X, currentY);
     dropRoutine();
     break;
   default:
