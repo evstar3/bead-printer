@@ -10,21 +10,18 @@
 // this gets dealt with as if it's part of the color sensor
 #define PHOTORESISTOR_PIN A0
 // ## steppers
-#define DMODE0_PIN 26
-#define DMODE1_PIN 27
-#define DMODE2_PIN 28
 #define STEPEN_PIN 29
-#define DIR0_PIN 30
-#define DIR1_PIN 31
-#define DIR2_PIN 32
-#define STEP0_PIN 9  // bead gear
+#define STEP0_PIN 6 // bead gear
+#define DIR0_PIN 7
 #define STEP1_PIN 10 // x axis
-#define STEP2_PIN 11 // y axis
-#define XSTOP_PIN 40
-#define YSTOP_PIN 41
+#define DIR1_PIN 11
+#define XSTOP_PIN 3
+#define STEP2_PIN 8 // y axis
+#define DIR2_PIN 9
+#define YSTOP_PIN 2
 // ## servos
 #define SERVO0_PIN 5
-#define SERVO1_PIN 6
+// #define SERVO1_PIN 6
 
 // # physical constants
 #define NEUTRAL_ANGLE 180
@@ -34,12 +31,12 @@
 #define MM_PER_BEAD 6    // TODO: figure out actual value
 #define BEAD_OFFSET_X 10 // TODO: figure out actual value
 #define BEAD_OFFSET_Y 10 // TODO: figure out actual value
-#define STEP_DELAY_MS 5  // TODO: figure out actual value
+#define STEP_DELAY_US 2000
 // 5mm per revolution, 1.8 degrees per step => 200 steps per revolution
 // => 40 steps per mm
 #define STEPS_PER_MM 40
-// #define FLIP_X
-// #define FLIP_Y
+#define FLIP_X
+#define FLIP_Y
 #define BEAD_PHOTORESISTOR_THRESHOLD 500 // TODO: figure out actual value
 
 // # objects
@@ -71,9 +68,9 @@ void endstopInit() {
 
 void stepperInit() {
   // Configure stepper motor pins as output
-  pinMode(DMODE0_PIN, OUTPUT);
-  pinMode(DMODE1_PIN, OUTPUT);
-  pinMode(DMODE2_PIN, OUTPUT);
+  // pinMode(DMODE0_PIN, OUTPUT);
+  // pinMode(DMODE1_PIN, OUTPUT);
+  // pinMode(DMODE2_PIN, OUTPUT);
   pinMode(STEPEN_PIN, OUTPUT);
   pinMode(DIR0_PIN, OUTPUT);
   pinMode(DIR1_PIN, OUTPUT);
@@ -85,9 +82,9 @@ void stepperInit() {
   // set DMODEs pins
   // per: https://www.pololu.com/product/2973 `Step (and microstep) size`
   // (full steps (for now at least))
-  digitalWrite(DMODE0_PIN, LOW);
-  digitalWrite(DMODE1_PIN, LOW);
-  digitalWrite(DMODE2_PIN, HIGH);
+  // digitalWrite(DMODE0_PIN, LOW);
+  // digitalWrite(DMODE1_PIN, LOW);
+  // digitalWrite(DMODE2_PIN, HIGH);
 
   // set STEPEN to 1
   digitalWrite(STEPEN_PIN, LOW);
@@ -133,7 +130,7 @@ void colorSensorInit() {
       ;
   }
 
-  // colorSensor.drvOn();
+  colorSensor.drvOn(); // white LED
   colorSensor.indicateLED(true);
 
   // set up photoresistor
@@ -141,7 +138,7 @@ void colorSensorInit() {
   // default to 10 bit resolution
   for (int i = 0; i < 10; i++) {
     analogRead(PHOTORESISTOR_PIN);
-    delay(10);
+    delay(100);
   }
 }
 
@@ -192,34 +189,35 @@ void homeAxes() {
   for (uint8_t axis = 0; axis < 2; axis++) {
     int *axisConfig = axesConfig[axis];
     // we want to home at normal speed and then half speed
-    for (uint8_t delayFactor = 1; delayFactor <= 2; delayFactor++) {
-      uint8_t waitTime = STEP_DELAY_MS * delayFactor;
 
-      digitalWrite(axisConfig[0], HIGH);
-      while (digitalRead(axisConfig[2]) == HIGH) {
-        digitalWrite(axisConfig[1], HIGH);
-        delay(waitTime);
-        digitalWrite(axisConfig[1], LOW);
-        delay(waitTime);
-      }
-      // now back off 5mm
-      digitalWrite(axisConfig[0], LOW);
-      for (int i = 0; i < 5 * STEPS_PER_MM; i++) {
-        digitalWrite(axisConfig[1], HIGH);
-        delay(waitTime);
-        digitalWrite(axisConfig[1], LOW);
-        delay(waitTime);
-      }
+    digitalWrite(axisConfig[0], HIGH);
+    while (digitalRead(axisConfig[2]) == HIGH) {
+      digitalWrite(axisConfig[1], HIGH);
+      delayMicroseconds(STEP_DELAY_US);
+      digitalWrite(axisConfig[1], LOW);
+      delayMicroseconds(STEP_DELAY_US);
+    }
+    // now back off 5mm
+    digitalWrite(axisConfig[0], LOW);
+    for (int i = 0; i < 5 * STEPS_PER_MM; i++) {
+      digitalWrite(axisConfig[1], HIGH);
+      delayMicroseconds(STEP_DELAY_US);
+      digitalWrite(axisConfig[1], LOW);
+      delayMicroseconds(STEP_DELAY_US);
+    }
+    digitalWrite(axisConfig[0], HIGH);
+    while (digitalRead(axisConfig[2]) == HIGH) {
+      digitalWrite(axisConfig[1], HIGH);
+      delayMicroseconds(STEP_DELAY_US * 2);
+      digitalWrite(axisConfig[1], LOW);
+      delayMicroseconds(STEP_DELAY_US * 2);
     }
   }
 
-  // now update variables
-  currentX = 5;
-  currentY = 5;
   homed = true;
 
   // go to neutral position
-  moveToBead(0, 0);
+  moveTo(50, 50);
 }
 
 // operates on real world coordinates (mm)
@@ -259,7 +257,7 @@ void moveTo(double x, double y) {
     digitalWrite(STEP1_PIN, HIGH);
     digitalWrite(STEP2_PIN, HIGH);
     // wait a bit
-    delay(STEP_DELAY_MS);
+    delayMicroseconds(STEP_DELAY_US);
     // reset
     digitalWrite(STEP1_PIN, LOW);
     digitalWrite(STEP2_PIN, LOW);
@@ -271,7 +269,7 @@ void moveTo(double x, double y) {
   digitalWrite(DIR1_PIN, stepsX > 0);
   while (stepsX != 0) {
     digitalWrite(STEP1_PIN, HIGH);
-    delay(STEP_DELAY_MS);
+    delayMicroseconds(STEP_DELAY_US);
     digitalWrite(STEP1_PIN, LOW);
     stepsX -= stepsX > 0 ? 1 : -1;
   }
@@ -279,7 +277,7 @@ void moveTo(double x, double y) {
   digitalWrite(DIR2_PIN, stepsY > 0);
   while (stepsY != 0) {
     digitalWrite(STEP2_PIN, HIGH);
-    delay(STEP_DELAY_MS);
+    delayMicroseconds(STEP_DELAY_US);
     digitalWrite(STEP2_PIN, LOW);
     stepsY -= stepsY > 0 ? 1 : -1;
   }
@@ -361,7 +359,7 @@ void setup() {
 
   // Initialize serial communication
   Serial.begin(115200);
-  delay(1000);
+  delay(2000);
   Serial.println("hello");
 
   // configure endstops
@@ -371,10 +369,10 @@ void setup() {
   stepperInit();
 
   // Initialize servo
-  servoInit();
+  // servoInit();
 
   // Initialize color sensor
-  colorSensorInit();
+  // colorSensorInit();
 
   // Home X and Y axes
   homeAxes();
