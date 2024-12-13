@@ -26,18 +26,17 @@
 // # physical constants
 #define NEUTRAL_ANGLE 180
 #define DROP_ANGLE 48
-#define REJECT_X 10      // TODO: figure out actual value
-#define REJECT_Y 10      // TODO: figure out actual value
+#define REJECT_X 100     // TODO: figure out actual value
 #define MM_PER_BEAD 6    // TODO: figure out actual value
 #define BEAD_OFFSET_X 10 // TODO: figure out actual value
 #define BEAD_OFFSET_Y 10 // TODO: figure out actual value
-#define HOMING_STEP_DELAY_US 2000
+#define HOMING_STEP_DELAY_US 1000
 #define STEP_DELAY_US 1000
 // 5mm per revolution, 1.8 degrees per step => 200 steps per revolution
 // => 40 steps per mm
 #define STEPS_PER_MM 40
-#define FLIP_X
-#define FLIP_Y
+// #define FLIP_X
+// #define FLIP_Y
 #define BEAD_PHOTORESISTOR_THRESHOLD 500 // TODO: figure out actual value
 
 // # objects
@@ -239,17 +238,8 @@ void moveTo(double x, double y) {
 
   // Calculate the number of steps for each axis
   // Adjust direction if needed (change #define's to reverse direction)
-#ifdef FLIP_X
-  int16_t stepsX = (x + currentX) * STEPS_PER_MM;
-  // that's the flipped one
-#else
-  int16_t stepsX = (x - currentX) * STEPS_PER_MM;
-#endif
-#ifdef FLIP_Y
-  int16_t stepsY = (y + currentY) * STEPS_PER_MM;
-#else
-  int16_t stepsY = (y - currentY) * STEPS_PER_MM;
-#endif
+  int16_t stepsX = (currentX - x) * STEPS_PER_MM;
+  int16_t stepsY = (currentY - y) * STEPS_PER_MM;
 
   // Perform the movement
   // handle both axes simulataneously
@@ -322,15 +312,15 @@ void parseSerial() {
 
   switch (buf) {
   // 0: start bead gear
-  case 0:
+  case '0':
     toggleBeadGearStepper(true);
     break;
   // 1: stop bead gear
-  case 1:
+  case '1':
     toggleBeadGearStepper(false);
     break;
     // 2: move to <x, y [bead indices]>, drop bead
-  case 2: {
+  case '2': {
     while (Serial.available() < 2)
       ;
 
@@ -345,7 +335,7 @@ void parseSerial() {
     break;
   }
   // 3: reject bead
-  case 3:
+  case '3':
     // i'm too lazy to write a new function just to move on the x axis
     // so this'll work.
     moveTo(REJECT_X, currentY);
@@ -378,10 +368,10 @@ void setup() {
   stepperInit();
 
   // Initialize servo
-  // servoInit();
+  servoInit();
 
   // Initialize color sensor
-  // colorSensorInit();
+  colorSensorInit();
 
   // Home X and Y axes
   homeAxes();
@@ -391,24 +381,24 @@ void setup() {
 }
 
 void loop() {
-  float colorSensorData[AS726x_NUM_CHANNELS];
-
-  // read analog value from photoresistor
-  // while it's larger than the threshold, keep looping
-  // (lack of bead means more light hits it)
-  while (analogRead(PHOTORESISTOR_PIN) > BEAD_PHOTORESISTOR_THRESHOLD)
-    delay(5);
-
-  // read color sensor data, store in sendBuf
-  colorSensor.startMeasurement();
-
-  // wait till data is available
-  while (!colorSensor.dataReady())
-    delay(5);
-  colorSensor.readCalibratedValues(colorSensorData);
-
-  // send the color values as raw bytes (6 x f32)
-  Serial.write((uint8_t *)colorSensorData, sizeof(colorSensorData));
+  // float colorSensorData[AS726x_NUM_CHANNELS];
+  //
+  // // read analog value from photoresistor
+  // // while it's larger than the threshold, keep looping
+  // // (lack of bead means more light hits it)
+  // while (analogRead(PHOTORESISTOR_PIN) > BEAD_PHOTORESISTOR_THRESHOLD)
+  //   delay(5);
+  //
+  // // read color sensor data, store in sendBuf
+  // colorSensor.startMeasurement();
+  //
+  // // wait till data is available
+  // while (!colorSensor.dataReady())
+  //   delay(5);
+  // colorSensor.readCalibratedValues(colorSensorData);
+  //
+  // // send the color values as raw bytes (6 x f32)
+  // Serial.write((uint8_t *)colorSensorData, sizeof(colorSensorData));
 
   // this blocks on a response
   parseSerial();
