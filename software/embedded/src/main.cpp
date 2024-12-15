@@ -28,7 +28,7 @@ Y = vertical axis
 
 // physical constants
 
-#define REJECT_X 100     // TODO: figure out actual value
+#define REJECT_X 190     // TODO: figure out actual value
 #define MM_PER_BEAD 6    // TODO: figure out actual value
 #define BEAD_OFFSET_X 10 // TODO: figure out actual value
 #define BEAD_OFFSET_Y 10 // TODO: figure out actual value
@@ -46,8 +46,8 @@ Y = vertical axis
 
 Servo DropServo;
 Adafruit_AS726x ColorSensor;
-int8_t CurrentX = 0; // by grid index
-int8_t CurrentY = 0; // by grid index
+double CurrentX; // mm
+double CurrentY; // mm
 bool IsHomed = false;
 
 // function prototypes
@@ -55,7 +55,7 @@ bool IsHomed = false;
 void endstopInit();
 void stepperInit();
 void servoInit();
-void ColorSensorInit();
+void colorSensorInit();
 void photoresistorInit();
 
 void setBeadGearStepper(bool on);
@@ -102,7 +102,7 @@ void servoInit() {
     DropServo.write(NEUTRAL_ANGLE);
 }
 
-void ColorSensorInit() {
+void colorSensorInit() {
     while (!ColorSensor.begin());
 
     ColorSensor.drvOn(); // super bright white LED
@@ -190,6 +190,8 @@ void homeAxes() {
     }
 
     IsHomed = true;
+    CurrentX = 0;
+    CurrentY = 0;
 }
 
 // operates on real world coordinates (mm)
@@ -266,11 +268,19 @@ void parseSerial() {
     while (!Serial.available());
 
     uint8_t buf = Serial.peek();
-
     uint8_t x, y;
 
     if (buf >= 'a' && buf <= 'z') {
-        String command = Serial.readStringUntil('\n');
+        String command = "";
+        while (true) {
+            while (!Serial.available());
+
+            char c = Serial.read();
+            if (c == '\n' || c == '\r')
+                break;
+
+            command += c;
+        }
 
         if (command == "home") {
             homeAxes();
@@ -368,7 +378,7 @@ void setup() {
     endstopInit();
     stepperInit();
     servoInit();
-    ColorSensorInit();
+    colorSensorInit();
     photoresistorInit();
     homeAxes();
 
@@ -396,11 +406,5 @@ void loop() {
     // Serial.write((uint8_t *)ColorSensorData, sizeof(ColorSensorData));
 
     // this blocks on a response
-    // parseSerial();
-
-    int av = analogRead(PHOTORESISTOR_PIN);
-    Serial.print(av);
-    Serial.print(' ');
-    Serial.println(av < 300 || av > 400);
-    delay(200);
+    parseSerial();
 }
