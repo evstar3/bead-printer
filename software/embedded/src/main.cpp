@@ -130,10 +130,10 @@ void colorSensorInit() {
   }
 }
 
-void toggleBeadGearStepper(bool on) {
-  digitalWrite(13, on);
+void toggleBeadGearStepper(bool setOn) {
+  digitalWrite(13, setOn);
   cli(); // Disable global interrupts
-  if (on) {
+  if (setOn) {
     // Initialize Timer1 for 100 Hz interrupts
     // Clear configs
     TCCR1A = 0; // Set entire TCCR1A register to 0
@@ -296,19 +296,84 @@ void parseSerial() {
   while (!Serial.available())
     ;
 
-  uint8_t buf = Serial.read();
+  uint8_t buf = Serial.peek();
+
+  if (buf >= 'a' && buf <= 'z') {
+    // this means buf is a a-z character
+    String command = Serial.readStringUntil('\n');
+
+    if (command == "home") {
+      homeAxes();
+      return;
+    } else if (command == "drop") {
+      dropRoutine();
+      return;
+    } else if (command == "start") {
+      toggleBeadGearStepper(true);
+      return;
+    } else if (command == "stop") {
+      toggleBeadGearStepper(false);
+      return;
+    } else if (command.startsWith("move ")) {
+      // move to (x, y) mm
+      // move 10 10
+
+      // remove the "move " part
+      command.remove(0, 5);
+
+      // split the string into x and y
+      int spaceIndex = command.indexOf(' ');
+      if (spaceIndex != -1) {
+        String xStr = command.substring(0, spaceIndex);
+        String yStr = command.substring(spaceIndex + 1);
+
+        // convert to double
+        double x = xStr.toDouble();
+        double y = yStr.toDouble();
+
+        moveTo(x, y);
+        return;
+      }
+    } else if (command.startsWith("moveBead ")) {
+      // move to (x, y) bead indices
+      // moveBead 10 10
+
+      // remove the "moveBead " part
+      command.remove(0, 9);
+
+      // split the string into x and y
+      int spaceIndex = command.indexOf(' ');
+      if (spaceIndex != -1) {
+        String xStr = command.substring(0, spaceIndex);
+        String yStr = command.substring(spaceIndex + 1);
+
+        // convert to uint8_t
+        uint8_t x = xStr.toInt();
+        uint8_t y = yStr.toInt();
+
+        moveToBead(x, y);
+        return;
+      }
+    } else if (command == "reject") {
+      moveTo(REJECT_X, currentY);
+      dropRoutine();
+      return;
+    }
+  }
+
+  buf = Serial.read();
 
   switch (buf) {
   // 0: start bead gear
-  case '0':
+  case 0:
     toggleBeadGearStepper(true);
     break;
   // 1: stop bead gear
-  case '1':
+  case 1:
     toggleBeadGearStepper(false);
     break;
     // 2: move to <x, y [bead indices]>, drop bead
-  case '2': {
+  case 2: {
     while (Serial.available() < 2)
       ;
 
@@ -323,7 +388,7 @@ void parseSerial() {
     break;
   }
   // 3: reject bead
-  case '3':
+  case 3:
     // i'm too lazy to write a new function just to move on the x axis
     // so this'll work.
     moveTo(REJECT_X, currentY);
