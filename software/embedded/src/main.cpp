@@ -105,18 +105,6 @@ void servoInit() {
   // Attach the servo object to the pin
   servo0.attach(SERVO0_PIN);
 
-  // sweep twice?
-  int pos = 0;
-  for (pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
-    // in steps of 1 degree
-    servo0.write(pos); // tell servo to go to position in variable 'pos'
-    delay(15);         // waits 15 ms for the servo to reach the position
-  }
-  for (pos = 180; pos >= 0; pos -= 1) { // goes from 180 degrees to 0 degrees
-    servo0.write(pos); // tell servo to go to position in variable 'pos'
-    delay(15);         // waits 15 ms for the servo to reach the position
-  }
-
   // Set initial servo position
   servo0.write(NEUTRAL_ANGLE);
 }
@@ -362,22 +350,22 @@ void setup() {
   Serial.println("hello");
 
   // configure endstops
-  endstopInit();
+  // endstopInit();
 
   // Initialize stepper motors
-  stepperInit();
+  // stepperInit();
 
   // Initialize servo
-  servoInit();
+  // servoInit();
 
   // Initialize color sensor
   colorSensorInit();
 
   // Home X and Y axes
-  homeAxes();
+  // homeAxes();
 
   Serial.println("Setup done!");
-  // toggleBeadGearStepper(true);
+  toggleBeadGearStepper(true);
 }
 
 void loop() {
@@ -401,5 +389,10 @@ void loop() {
   // Serial.write((uint8_t *)colorSensorData, sizeof(colorSensorData));
 
   // this blocks on a response
-  parseSerial();
+  // parseSerial();
+
+  int av = analogRead(PHOTORESISTOR_PIN);
+  Serial.println(av);
+  Serial.println(av < 300 || av > 400);
+  delay(200);
 }

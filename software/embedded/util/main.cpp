@@ -14,14 +14,14 @@
 #define DMODE1_PIN 27
 #define DMODE2_PIN 28
 #define STEPEN_PIN 29
-#define DIR0_PIN 30
-#define DIR1_PIN 31
-#define DIR2_PIN 32
-#define STEP0_PIN 9  // bead gear
+#define STEP0_PIN 6 // bead gear
+#define DIR0_PIN 7
 #define STEP1_PIN 10 // x axis
-#define STEP2_PIN 11 // y axis
-#define XSTOP_PIN 40
-#define YSTOP_PIN 41
+#define DIR1_PIN 11
+#define XSTOP_PIN 3
+#define STEP2_PIN 8 // y axis
+#define DIR2_PIN 9
+#define YSTOP_PIN 2
 // ## servos
 #define SERVO0_PIN 5
 #define SERVO1_PIN 6
@@ -106,18 +106,6 @@ void stepperInit() {
 void servoInit() {
   // Attach the servo object to the pin
   servo0.attach(SERVO0_PIN);
-
-  // sweep twice?
-  int pos = 0;
-  for (pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
-    // in steps of 1 degree
-    servo0.write(pos); // tell servo to go to position in variable 'pos'
-    delay(15);         // waits 15 ms for the servo to reach the position
-  }
-  for (pos = 180; pos >= 0; pos -= 1) { // goes from 180 degrees to 0 degrees
-    servo0.write(pos); // tell servo to go to position in variable 'pos'
-    delay(15);         // waits 15 ms for the servo to reach the position
-  }
 
   // Set initial servo position
   servo0.write(NEUTRAL_ANGLE);
@@ -372,7 +360,7 @@ void setup() {
   servoInit();
 
   // Initialize color sensor
-  // colorSensorInit();
+  colorSensorInit();
 
   // Home X and Y axes
   // homeAxes();
@@ -382,17 +370,15 @@ void setup() {
 }
 
 void loop() {
-    while (!Serial.available())
-        ;
-    String angle_str = Serial.readStringUntil('\n');
-    if (angle_str)
-    {
-        int angle = angle_str.toInt();
-        if (angle < 15)
-            return;
-        servo0.write(angle);
-        delay(1000);
-        servo0.write(180);
-    }
-
+  while (!Serial.available())
+    ;
+  String angle_str = Serial.readStringUntil('\n');
+  if (angle_str) {
+    int angle = angle_str.toInt();
+    if (angle < 15)
+      return;
+    servo0.write(angle);
+    delay(1000);
+    servo0.write(170);
+  }
 }
