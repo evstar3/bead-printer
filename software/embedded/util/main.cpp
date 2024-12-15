@@ -120,7 +120,7 @@ void colorSensorInit() {
       ;
   }
 
-  // colorSensor.drvOn();
+  colorSensor.drvOn();
   colorSensor.indicateLED(true);
 
   // set up photoresistor

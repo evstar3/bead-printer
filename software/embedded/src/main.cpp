@@ -5,459 +5,402 @@
 
 #include "Servo.h"
 
-// # pins
-// ## photoresistor
-// this gets dealt with as if it's part of the color sensor
-#define PHOTORESISTOR_PIN A0
-// ## steppers
-#define STEPEN_PIN 29
-#define STEP0_PIN 6 // bead gear
-#define DIR0_PIN 7
-#define STEP1_PIN 10 // x axis
-#define DIR1_PIN 11
-#define XSTOP_PIN 3
-#define STEP2_PIN 8 // y axis
-#define DIR2_PIN 9
-#define YSTOP_PIN 2
-// ## servos
-#define SERVO0_PIN 5
-// #define SERVO1_PIN 6
 
-// # physical constants
-#define NEUTRAL_ANGLE 180
-#define DROP_ANGLE 48
+/*
+Note:
+X = horizontal axis
+Y = vertical axis
+*/
+
+// pins
+
+#define DROP_SERVO_PIN 5
+#define PHOTORESISTOR_PIN A0
+#define STEP_EN_PIN 29
+#define GEAR_STEP_PIN 6
+#define GEAR_DIR_PIN 7
+#define X_STEP_PIN 10
+#define X_DIR_PIN 11
+#define X_STOP_PIN 3
+#define Y_STEP_PIN 8
+#define Y_DIR_PIN 9
+#define Y_STOP_PIN 2
+
+// physical constants
+
 #define REJECT_X 100     // TODO: figure out actual value
 #define MM_PER_BEAD 6    // TODO: figure out actual value
 #define BEAD_OFFSET_X 10 // TODO: figure out actual value
 #define BEAD_OFFSET_Y 10 // TODO: figure out actual value
+
 #define HOMING_STEP_DELAY_US 1000
 #define STEP_DELAY_US 1000
-// 5mm per revolution, 1.8 degrees per step => 200 steps per revolution
-// => 40 steps per mm
-#define STEPS_PER_MM 40
-// #define FLIP_X
-// #define FLIP_Y
-#define BEAD_PHOTORESISTOR_THRESHOLD 500 // TODO: figure out actual value
 
-// # objects
-Servo servo0;
-Adafruit_AS726x colorSensor;
+#define AXIS_STEPS_PER_REV 200
+#define AXIS_MM_PER_REV 5
+#define AXIS_STEPS_PER_MM (AXIS_STEPS_PER_REV / AXIS_MM_PER_REV)
 
-// # global state
-int8_t currentX = 0,
-       currentY = 0; // bead indices (not more than 60? in each direction)
-bool homed = false; // this is also gated by `bool homed` as EN can only be HIGH
-                    // if that's the case
+#define NEUTRAL_ANGLE 180
 
-// # function declarations
+// globals
+
+Servo DropServo;
+Adafruit_AS726x ColorSensor;
+int8_t CurrentX = 0; // by grid index
+int8_t CurrentY = 0; // by grid index
+bool IsHomed = false;
+
+// function prototypes
+
 void endstopInit();
 void stepperInit();
 void servoInit();
-void colorSensorInit();
-void toggleBeadGearStepper(bool on);
+void ColorSensorInit();
+void photoresistorInit();
+
+void setBeadGearStepper(bool on);
 void homeAxes();
 void moveTo(double x, double y);
 inline void moveToBead(uint8_t x, uint8_t y);
 void dropRoutine();
 void parseSerial();
 
+// function definitions
+
 void endstopInit() {
-  pinMode(XSTOP_PIN, INPUT_PULLUP);
-  pinMode(YSTOP_PIN, INPUT_PULLUP);
+    pinMode(X_STOP_PIN, INPUT_PULLUP);
+    pinMode(Y_STOP_PIN, INPUT_PULLUP);
 }
 
 void stepperInit() {
-  // Configure stepper motor pins as output
-  // pinMode(DMODE0_PIN, OUTPUT);
-  // pinMode(DMODE1_PIN, OUTPUT);
-  // pinMode(DMODE2_PIN, OUTPUT);
-  pinMode(STEPEN_PIN, OUTPUT);
-  pinMode(DIR0_PIN, OUTPUT);
-  pinMode(DIR1_PIN, OUTPUT);
-  pinMode(DIR2_PIN, OUTPUT);
-  pinMode(STEP0_PIN, OUTPUT);
-  pinMode(STEP1_PIN, OUTPUT);
-  pinMode(STEP2_PIN, OUTPUT);
+    // configure stepper pins as output
+    pinMode(STEP_EN_PIN, OUTPUT);
 
-  // set DMODEs pins
-  // per: https://www.pololu.com/product/2973 `Step (and microstep) size`
-  // (full steps (for now at least))
-  // digitalWrite(DMODE0_PIN, LOW);
-  // digitalWrite(DMODE1_PIN, LOW);
-  // digitalWrite(DMODE2_PIN, HIGH);
+    pinMode(GEAR_DIR_PIN, OUTPUT);
+    pinMode(GEAR_STEP_PIN, OUTPUT);
 
-  // set STEPEN to 1
-  digitalWrite(STEPEN_PIN, LOW);
+    pinMode(X_DIR_PIN, OUTPUT);
+    pinMode(X_STEP_PIN, OUTPUT);
 
-  // set DIRs all 0
-  digitalWrite(DIR0_PIN, HIGH);
-  digitalWrite(DIR1_PIN, LOW);
-  digitalWrite(DIR2_PIN, LOW);
+    pinMode(Y_DIR_PIN, OUTPUT);
+    pinMode(Y_STEP_PIN, OUTPUT);
 
-  // set STEP to 0
-  // triggered by rising edge
-  digitalWrite(STEP0_PIN, LOW);
-  digitalWrite(STEP1_PIN, LOW);
-  digitalWrite(STEP2_PIN, LOW);
+    // initialize stepper pins
+    digitalWrite(STEP_EN_PIN, LOW);
+
+    digitalWrite(GEAR_DIR_PIN, HIGH);
+    digitalWrite(X_DIR_PIN, LOW);
+    digitalWrite(Y_DIR_PIN, LOW);
+
+    digitalWrite(GEAR_STEP_PIN, LOW);
+    digitalWrite(X_STEP_PIN, LOW);
+    digitalWrite(Y_DIR_PIN, LOW);
 }
 
 void servoInit() {
-  // Attach the servo object to the pin
-  servo0.attach(SERVO0_PIN);
-
-  // Set initial servo position
-  servo0.write(NEUTRAL_ANGLE);
+    DropServo.attach(DROP_SERVO_PIN);
+    DropServo.write(NEUTRAL_ANGLE);
 }
 
-void colorSensorInit() {
-  // Initialize color sensor
-  // begin and make sure we can talk to the sensor
-  if (!colorSensor.begin()) {
-    // Serial.println("could not connect to sensor! Please check your wiring.");
-    while (1)
-      ;
-  }
+void ColorSensorInit() {
+    while (!ColorSensor.begin());
 
-  colorSensor.drvOn(); // white LED
-  colorSensor.indicateLED(true);
-
-  // set up photoresistor
-  pinMode(PHOTORESISTOR_PIN, INPUT);
-  // default to 10 bit resolution
-  for (int i = 0; i < 10; i++) {
-    analogRead(PHOTORESISTOR_PIN);
-    delay(100);
-  }
+    ColorSensor.drvOn(); // super bright white LED
+    ColorSensor.indicateLED(true);
 }
 
-void toggleBeadGearStepper(bool setOn) {
-  digitalWrite(13, setOn);
-  cli(); // Disable global interrupts
-  if (setOn) {
-    // Initialize Timer1 for 100 Hz interrupts
-    // Clear configs
-    TCCR1A = 0; // Set entire TCCR1A register to 0
-    TCCR1B = 0; // Same for TCCR1B
-    TCNT1 = 0;  // Initialize counter value to 0
+void photoresistorInit() {
+    pinMode(PHOTORESISTOR_PIN, INPUT);
+}
 
-    // Set compare match register to desired timer count
-    // f = 16 MHz / (prescaler * (1 + OCR1A))
-    // => OCR1A = 16 Mhz / F / prescaler - 1
-    //     ^^     ^ XTAL runs at 16*1000^2 so use that
-    // 15624 gives 1 Hz
-    // 1561 gives 10 Hz
-    // 1040 gives 15 Hz
-    // 155 gives 100 Hz
-    OCR1A = 1040; // Set compare match register for 15 Hz increments
+void setBeadGearStepper(bool set_on) {
+    // disable global interrupts
+    cli();
 
-    // Turn on CTC mode (Clear Timer on Compare match)
-    TCCR1B |= (1 << WGM12);
-    // Set CS12 and CS10 bits for 1024 prescaler
-    TCCR1B |= (1 << CS12) | (1 << CS10);
-    // Enable timer compare interrupt
-    TIMSK1 |= (1 << OCIE1A);
+    if (set_on) {
+        // Set compare match register to desired timer count
+        // f = 16 MHz / (prescaler * (1 + OCR1A))
+        // => OCR1A = 16 Mhz / F / prescaler - 1
+        //     ^^     ^ XTAL runs at 16*1000^2 so use that
+        // 15624 gives 1 Hz
+        // 1561 gives 10 Hz
+        // 1040 gives 15 Hz
+        // 155 gives 100 Hz
+        OCR1A = 1040; // Set compare match register for 15 Hz increments
 
-  } else {
-    // disable the timer
-    // clear configs
-    TCCR1A = 0;               // Set entire TCCR1A register to 0
-    TCCR1B = 0;               // Same for TCCR1B
-    TCNT1 = 0;                // Initialize counter value to 0
-    TIMSK1 &= ~(1 << OCIE1A); // disable the interrupt
-  }
-  sei(); // Reenable global interrupts
+        // turn on CTC mode (Clear Timer on Compare match)
+        TCCR1B |= (1 << WGM12);
+
+        // set CS12 and CS10 bits for 1024 prescaler
+        TCCR1B |= (1 << CS12) | (1 << CS10);
+
+        // enable timer compare interrupt
+        TIMSK1 |= (1 << OCIE1A);
+    } else {
+        // clear current timer configs
+        TCCR1A = 0;
+        TCCR1B = 0;
+        TCNT1 = 0;
+
+        // disable the interrupt
+        TIMSK1 &= ~(1 << OCIE1A);
+    }
+
+    // reenable global interrupts
+    sei();
 }
 
 void homeAxes() {
-  // double array where [0] = (DIR1_PIN, STEP1_PIN, XSTOP_PIN), [1] = (DIR2_PIN,
-  // STEP2_PIN, YSTOP_PIN)
-  int axesConfig[2][3] = {{DIR1_PIN, STEP1_PIN, XSTOP_PIN},
-                          {DIR2_PIN, STEP2_PIN, YSTOP_PIN}};
+    int axis_pins[2][3] = {
+        {X_DIR_PIN, X_STEP_PIN, X_STOP_PIN},
+        {Y_DIR_PIN, Y_STEP_PIN, Y_STOP_PIN}
+    };
 
-  for (uint8_t axis = 0; axis < 2; axis++) {
-    int *axisConfig = axesConfig[axis];
-    // we want to home at normal speed and then half speed
+    for (uint8_t axis = 0; axis < 2; axis++) {
+        int dir_pin = axis_pins[axis][0];
+        int step_pin = axis_pins[axis][1];
+        int stop_pin = axis_pins[axis][2];
 
-    digitalWrite(axisConfig[0], HIGH);
-    while (digitalRead(axisConfig[2]) == HIGH) {
-      digitalWrite(axisConfig[1], HIGH);
-      delayMicroseconds(HOMING_STEP_DELAY_US);
-      digitalWrite(axisConfig[1], LOW);
-      delayMicroseconds(HOMING_STEP_DELAY_US);
+        // move at normal speed
+        digitalWrite(dir_pin, HIGH);
+        while (digitalRead(stop_pin) == HIGH) {
+            digitalWrite(step_pin, HIGH);
+            delayMicroseconds(HOMING_STEP_DELAY_US);
+            digitalWrite(step_pin, LOW);
+            delayMicroseconds(HOMING_STEP_DELAY_US);
+        }
+
+        // now back off 5mm
+        digitalWrite(dir_pin, LOW);
+        for (int i = 0; i < 5 * AXIS_STEPS_PER_MM; i++) {
+            digitalWrite(step_pin, HIGH);
+            delayMicroseconds(HOMING_STEP_DELAY_US);
+            digitalWrite(step_pin, LOW);
+            delayMicroseconds(HOMING_STEP_DELAY_US);
+        }
+
+        // move at half speed
+        digitalWrite(dir_pin, HIGH);
+        while (digitalRead(stop_pin) == HIGH) {
+            digitalWrite(step_pin, HIGH);
+            delayMicroseconds(HOMING_STEP_DELAY_US * 2);
+            digitalWrite(step_pin, LOW);
+            delayMicroseconds(HOMING_STEP_DELAY_US * 2);
+        }
     }
-    // now back off 5mm
-    digitalWrite(axisConfig[0], LOW);
-    for (int i = 0; i < 5 * STEPS_PER_MM; i++) {
-      digitalWrite(axisConfig[1], HIGH);
-      delayMicroseconds(HOMING_STEP_DELAY_US);
-      digitalWrite(axisConfig[1], LOW);
-      delayMicroseconds(HOMING_STEP_DELAY_US);
-    }
-    digitalWrite(axisConfig[0], HIGH);
-    while (digitalRead(axisConfig[2]) == HIGH) {
-      digitalWrite(axisConfig[1], HIGH);
-      delayMicroseconds(HOMING_STEP_DELAY_US * 2);
-      digitalWrite(axisConfig[1], LOW);
-      delayMicroseconds(HOMING_STEP_DELAY_US * 2);
-    }
-  }
 
-  homed = true;
-
-  // go to neutral position
-  moveTo(50, 50);
+    IsHomed = true;
 }
 
 // operates on real world coordinates (mm)
 void moveTo(double x, double y) {
-  // make sure homed first (should always be the case)
-  if (!homed)
-    return;
+    if (!IsHomed)
+        return;
 
-  // Check if there's any movement needed
-  if (x == currentX && y == currentY) {
-    return;
-  }
+    if (x == CurrentX && y == CurrentY)
+        return;
 
-  // prevent negative (x,y)
-  if (x < 0 || y < 0) {
-    return;
-  }
+    if (x < 0 || y < 0)
+        return;
 
-  // Calculate the number of steps for each axis
-  // Adjust direction if needed (change #define's to reverse direction)
-  int16_t stepsX = (currentX - x) * STEPS_PER_MM;
-  int16_t stepsY = (currentY - y) * STEPS_PER_MM;
+    int16_t x_steps = (CurrentX - x) * AXIS_STEPS_PER_MM;
+    int16_t y_steps = (CurrentY - y) * AXIS_STEPS_PER_MM;
 
-  // Perform the movement
-  // handle both axes simulataneously
-  digitalWrite(DIR1_PIN, stepsX > 0);
-  digitalWrite(DIR2_PIN, stepsY > 0);
-  while (stepsX != 0 && stepsY != 0) {
-    // steps
-    digitalWrite(STEP1_PIN, HIGH);
-    digitalWrite(STEP2_PIN, HIGH);
-    // wait a bit
-    delayMicroseconds(STEP_DELAY_US);
-    // reset
-    digitalWrite(STEP1_PIN, LOW);
-    digitalWrite(STEP2_PIN, LOW);
-    // wait a bit
-    delayMicroseconds(STEP_DELAY_US);
-    // change counter
-    stepsX -= stepsX > 0 ? 1 : -1;
-    stepsY -= stepsY > 0 ? 1 : -1;
-  }
-  // x axis only
-  digitalWrite(DIR1_PIN, stepsX > 0);
-  while (stepsX != 0) {
-    digitalWrite(STEP1_PIN, HIGH);
-    delayMicroseconds(STEP_DELAY_US);
-    digitalWrite(STEP1_PIN, LOW);
-    delayMicroseconds(STEP_DELAY_US);
-    stepsX -= stepsX > 0 ? 1 : -1;
-  }
-  // y axis only
-  digitalWrite(DIR2_PIN, stepsY > 0);
-  while (stepsY != 0) {
-    digitalWrite(STEP2_PIN, HIGH);
-    delayMicroseconds(STEP_DELAY_US);
-    digitalWrite(STEP2_PIN, LOW);
-    delayMicroseconds(STEP_DELAY_US);
-    stepsY -= stepsY > 0 ? 1 : -1;
-  }
+    // set directions
+    digitalWrite(X_DIR_PIN, x_steps > 0);
+    digitalWrite(Y_DIR_PIN, y_steps > 0);
 
-  // Update current position
-  currentX = x;
-  currentY = y;
+    // handle both axes simulataneously
+    while (x_steps || y_steps) {
+        if (x_steps)
+            digitalWrite(X_STEP_PIN, HIGH);
+        if (y_steps)
+            digitalWrite(Y_STEP_PIN, HIGH);
+
+        delayMicroseconds(STEP_DELAY_US);
+
+        if (x_steps)
+            digitalWrite(X_STEP_PIN, LOW);
+        if (y_steps)
+            digitalWrite(Y_STEP_PIN, LOW);
+
+        delayMicroseconds(STEP_DELAY_US);
+
+        if (x_steps > 0)
+            x_steps--;
+        else if (x_steps < 0)
+            x_steps++;
+
+        if (y_steps > 0)
+            y_steps--;
+        else if (y_steps < 0)
+            y_steps++;
+    }
+
+    CurrentX = x;
+    CurrentY = y;
 }
 
 // converts bead indices to coordinates
 inline void moveToBead(uint8_t x, uint8_t y) {
-  moveTo(x * MM_PER_BEAD + BEAD_OFFSET_X, y * MM_PER_BEAD + BEAD_OFFSET_Y);
+    moveTo(x * MM_PER_BEAD + BEAD_OFFSET_X, y * MM_PER_BEAD + BEAD_OFFSET_Y);
 }
 
 void dropRoutine() {
-  // make sure at neutral
-  servo0.write(NEUTRAL_ANGLE);
-  delay(100);
+    const int DROP_ANGLE = 65;
 
-  // trigger drop
-  servo0.write(DROP_ANGLE);
-  delay(1000);
+    // make sure at neutral
+    DropServo.write(NEUTRAL_ANGLE);
+    delay(500);
 
-  // go back to neutral
-  servo0.write(NEUTRAL_ANGLE);
-  delay(100);
+    // trigger drop
+    DropServo.write(DROP_ANGLE);
+    delay(1000);
+
+    // go back to neutral
+    DropServo.write(NEUTRAL_ANGLE);
+    delay(500);
 }
 
 void parseSerial() {
-  // wait for a byte
-  while (!Serial.available())
-    ;
+    while (!Serial.available());
 
-  uint8_t buf = Serial.peek();
+    uint8_t buf = Serial.peek();
 
-  if (buf >= 'a' && buf <= 'z') {
-    // this means buf is a a-z character
-    String command = Serial.readStringUntil('\n');
+    uint8_t x, y;
 
-    if (command == "home") {
-      homeAxes();
-      return;
-    } else if (command == "drop") {
-      dropRoutine();
-      return;
-    } else if (command == "start") {
-      toggleBeadGearStepper(true);
-      return;
-    } else if (command == "stop") {
-      toggleBeadGearStepper(false);
-      return;
-    } else if (command.startsWith("move ")) {
-      // move to (x, y) mm
-      // move 10 10
+    if (buf >= 'a' && buf <= 'z') {
+        String command = Serial.readStringUntil('\n');
 
-      // remove the "move " part
-      command.remove(0, 5);
+        if (command == "home") {
+            homeAxes();
+        } else if (command == "drop") {
+            dropRoutine();
+        } else if (command == "start") {
+            setBeadGearStepper(true);
+        } else if (command == "stop") {
+            setBeadGearStepper(false);
+        } else if (command.startsWith("move ")) {
+            // expecting "move <double> <double>"
 
-      // split the string into x and y
-      int spaceIndex = command.indexOf(' ');
-      if (spaceIndex != -1) {
-        String xStr = command.substring(0, spaceIndex);
-        String yStr = command.substring(spaceIndex + 1);
+            command.remove(0, strlen("move "));
 
-        // convert to double
-        double x = xStr.toDouble();
-        double y = yStr.toDouble();
+            // split the string into x and y
+            int space_index = command.indexOf(' ');
+            if (space_index != -1) {
+                String x_str = command.substring(0, space_index);
+                String y_str = command.substring(space_index + 1);
 
-        moveTo(x, y);
+                // convert to double
+                double x = x_str.toDouble();
+                double y = y_str.toDouble();
+
+                moveTo(x, y);
+            }
+        } else if (command.startsWith("moveBead ")) {
+            // expecting "moveBead <int> <int>"
+
+            command.remove(0, strlen("moveBead "));
+
+            // split the string into x and y
+            int space_index = command.indexOf(' ');
+            if (space_index != -1) {
+                String x_str = command.substring(0, space_index);
+                String y_str = command.substring(space_index + 1);
+
+                x = x_str.toInt();
+                y = y_str.toInt();
+
+                moveToBead(x, y);
+            }
+        } else if (command == "reject") {
+            moveTo(REJECT_X, CurrentY);
+            dropRoutine();
+        }
+
         return;
-      }
-    } else if (command.startsWith("moveBead ")) {
-      // move to (x, y) bead indices
-      // moveBead 10 10
-
-      // remove the "moveBead " part
-      command.remove(0, 9);
-
-      // split the string into x and y
-      int spaceIndex = command.indexOf(' ');
-      if (spaceIndex != -1) {
-        String xStr = command.substring(0, spaceIndex);
-        String yStr = command.substring(spaceIndex + 1);
-
-        // convert to uint8_t
-        uint8_t x = xStr.toInt();
-        uint8_t y = yStr.toInt();
-
-        moveToBead(x, y);
-        return;
-      }
-    } else if (command == "reject") {
-      moveTo(REJECT_X, currentY);
-      dropRoutine();
-      return;
     }
-  }
 
-  buf = Serial.read();
+    buf = Serial.read();
 
-  switch (buf) {
-  // 0: start bead gear
-  case 0:
-    toggleBeadGearStepper(true);
-    break;
-  // 1: stop bead gear
-  case 1:
-    toggleBeadGearStepper(false);
-    break;
-    // 2: move to <x, y [bead indices]>, drop bead
-  case 2: {
-    while (Serial.available() < 2)
-      ;
+    switch (buf) {
+        case 0:
+            // start bead gear
+            setBeadGearStepper(true);
+            break;
+        case 1:
+            // stop bead gear
+            setBeadGearStepper(false);
+            break;
+        case 2:
+            // 2: move to <x, y [bead indices]>, drop bead
+            while (Serial.available() < 2);
 
-    // these are bead indices
-    uint8_t x = Serial.read();
-    uint8_t y = Serial.read();
+            // these are bead indices
+            x = Serial.read();
+            y = Serial.read();
 
-    moveToBead(x, y);
+            moveToBead(x, y);
+            dropRoutine();
 
-    dropRoutine();
-
-    break;
-  }
-  // 3: reject bead
-  case 3:
-    // i'm too lazy to write a new function just to move on the x axis
-    // so this'll work.
-    moveTo(REJECT_X, currentY);
-    dropRoutine();
-    break;
-  default:
-    break;
-  }
+            break;
+        case 3:
+            // 3: reject bead
+            moveTo(REJECT_X, CurrentY);
+            dropRoutine();
+            break;
+        default:
+            break;
+    }
 }
 
 volatile bool beadGearStepValue = 0;
 ISR(TIMER1_COMPA_vect) {
-  digitalWrite(STEP0_PIN, beadGearStepValue);
-  // digitalWrite(13, beadGearStepValue);
-  beadGearStepValue = !beadGearStepValue;
+    digitalWrite(GEAR_STEP_PIN, beadGearStepValue);
+    beadGearStepValue = !beadGearStepValue;
 }
 
 void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(LED_BUILTIN, OUTPUT);
 
-  // Initialize serial communication
-  Serial.begin(115200);
-  delay(2000);
-  Serial.println("hello");
+    Serial.begin(115200);
 
-  // configure endstops
-  // endstopInit();
+    endstopInit();
+    stepperInit();
+    servoInit();
+    ColorSensorInit();
+    photoresistorInit();
+    homeAxes();
 
-  // Initialize stepper motors
-  // stepperInit();
-
-  // Initialize servo
-  // servoInit();
-
-  // Initialize color sensor
-  colorSensorInit();
-
-  // Home X and Y axes
-  // homeAxes();
-
-  Serial.println("Setup done!");
-  toggleBeadGearStepper(true);
+    setBeadGearStepper(true);
 }
 
 void loop() {
-  // float colorSensorData[AS726x_NUM_CHANNELS];
-  //
-  // // read analog value from photoresistor
-  // // while it's larger than the threshold, keep looping
-  // // (lack of bead means more light hits it)
-  // while (analogRead(PHOTORESISTOR_PIN) > BEAD_PHOTORESISTOR_THRESHOLD)
-  //   delay(5);
-  //
-  // // read color sensor data, store in sendBuf
-  // colorSensor.startMeasurement();
-  //
-  // // wait till data is available
-  // while (!colorSensor.dataReady())
-  //   delay(5);
-  // colorSensor.readCalibratedValues(colorSensorData);
-  //
-  // // send the color values as raw bytes (6 x f32)
-  // Serial.write((uint8_t *)colorSensorData, sizeof(colorSensorData));
+    // float ColorSensorData[AS726x_NUM_CHANNELS];
+    //
+    // // read analog value from photoresistor
+    // // while it's larger than the threshold, keep looping
+    // // (lack of bead means more light hits it)
+    // while (analogRead(PHOTORESISTOR_PIN) > BEAD_PHOTORESISTOR_THRESHOLD)
+    //   delay(5);
+    //
+    // // read color sensor data, store in sendBuf
+    // ColorSensor.startMeasurement();
+    //
+    // // wait till data is available
+    // while (!ColorSensor.dataReady())
+    //   delay(5);
+    // ColorSensor.readCalibratedValues(ColorSensorData);
+    //
+    // // send the color values as raw bytes (6 x f32)
+    // Serial.write((uint8_t *)ColorSensorData, sizeof(ColorSensorData));
 
-  // this blocks on a response
-  // parseSerial();
+    // this blocks on a response
+    // parseSerial();
 
-  int av = analogRead(PHOTORESISTOR_PIN);
-  Serial.println(av);
-  Serial.println(av < 300 || av > 400);
-  delay(200);
+    int av = analogRead(PHOTORESISTOR_PIN);
+    Serial.print(av);
+    Serial.print(' ');
+    Serial.println(av < 300 || av > 400);
+    delay(200);
 }
