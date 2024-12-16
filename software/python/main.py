@@ -5,9 +5,11 @@ import sys
 import os
 
 from serial import Serial
+from pathlib import Path
 
 import fusejet.print_job
 import fusejet.comms
+from fusejet.classifier import BeadClassifier
 
 MAX_HEIGHT = 32
 MAX_WIDTH  = 32
@@ -34,8 +36,25 @@ def main():
         default=MAX_HEIGHT,
         type=int
     )
+    parser.add_argument(
+        '--from-kmeans',
+        type=Path
+    )
+    parser.add_argument(
+        '--from-save',
+        type=Path
+    )
 
     args = parser.parse_args()
+
+    # validate classifier
+    if (args.from_save and args.from_kmeans) or not (args.from_save or args.from_kmeans):
+        print('fusejet: exactly one of --from-kmeans or --from-save is required', file=sys.stderr)
+        sys.exit(1)
+    elif args.from_save:
+        classifier = BeadClassifier.from_save(args.from_save)
+    else args.from_kmeans:
+        classifier = BeadClassifier.from_kmeans(args.from_kmeans)
 
     # validate width and height
     if (args.width < 1 or args.width > MAX_WIDTH):
@@ -47,11 +66,11 @@ def main():
 
     # read and transform image
     if not os.path.exists(args.image_path):
-        print(f'fusejet: error: file not found: {image_path}')
+        print(f'fusejet: error: file not found: {args.image_path}')
         sys.exit(1)
 
     if not os.path.isfile(args.image_path):
-        print(f'fusejet: error: image path does not specify a regular file: {image_path}')
+        print(f'fusejet: error: image path does not specify a regular file: {args.image_path}')
         sys.exit(1)
 
     if args.port:
@@ -62,7 +81,7 @@ def main():
         ser_args = {}
 
     with SerialClass(**ser_args) as ser:
-        job = print_job.PrintJob(args.image_path, args.width, args.height, ser)
+        job = print_job.PrintJob(args.image_path, args.width, args.height, ser, classifier)
 
         if job.confirm():
             job.start()
