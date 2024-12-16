@@ -53,7 +53,7 @@ def main():
         sys.exit(1)
     elif args.from_save:
         classifier = BeadClassifier.from_save(args.from_save)
-    else args.from_kmeans:
+    elif args.from_kmeans:
         classifier = BeadClassifier.from_kmeans(args.from_kmeans)
 
     # validate width and height
