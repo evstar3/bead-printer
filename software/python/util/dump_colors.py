@@ -39,16 +39,12 @@ def main():
         with SerialClass(**ser_args) as ser:
             controller = comms.ArduinoController(ser)
 
-            def get_spectrum():
-                try:
-                    yield controller.read_spectrum()
-                except EOFError:
-                    return
-
             try:
-                for spectrum in get_spectrum():
-                    fp.write(str(spectrum))
-            except KeyboardInterrupt:
+                while True:
+                    fp.write(str(controller.read_spectrum()))
+                    fp.write('\n')
+                    fp.flush()
+            except (KeyboardInterrupt, EOFError):
                 pass
 
 if __name__ == '__main__':
