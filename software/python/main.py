@@ -83,10 +83,7 @@ def main():
     with SerialClass(**ser_args) as ser:
         job = print_job.PrintJob(args.image_path, args.width, args.height, ser, classifier)
 
-        if job.confirm():
-            job.start()
-        else:
-            sys.exit(0)
+        job.start()
 
         while not job.is_done():
             job.place_bead()

@@ -9,9 +9,10 @@ from fusejet.comms import ArduinoController
 from fusejet.color import spectrum_to_sRGB
 
 class PrintJob():
-    def __init__(self, image_fp, width, height, serial) -> None:
+    def __init__(self, image_fp, width, height, serial, classifier) -> None:
         self.controller = ArduinoController(serial)
         self.initialize_job_state(image_fp, width, height)
+        self.classifier = classifier
 
     def initialize_job_state(self, image_fp, width, height):
         self.pos = (0, 0)
@@ -66,38 +67,30 @@ class PrintJob():
     def start(self):
         self.controller.start()
 
-    def confirm(self) -> bool:
-        print('fusejet: showing prepared image')
-        # self.prepared_image.show()
-
-        response = input('fusejet: print prepared image? ').lower()
-
-        return response == 'yes' or response == 'y'
-
-    def euclidean_distance(a, b) -> int:
-        assert len(a) == len(b)
-        return sum((ax - bx) ** 2 for ax, bx in zip(a, b))
-
-    def classify_color(self, color) -> int | None:
-        distance, kvp = min((PrintJob.euclidean_distance(kvp[0], color), kvp) for kvp in self.prepared_image.palette.colors.items())
-        print(color, distance)
-
-        cutoff = 100
-
-        return kvp[1] if distance < cutoff else None
-
     def is_done(self):
         return len(self.to_place) == 0
 
+    def euclidiean_distance(a, b):
+        assert len(a) == len(b)
+        return pow(sum(pow(ai - bi, 2) for ai, bi in zip(a, b)), 0.5)
+
+    def closest_color(self, hsv):
+        color, dist = min((color, pow(colour.rgb_to_hsv(color)[0] - hsv[0], 2)) for color in self.to_place, key=lambda x: x[1])
+
+        cutoff = 500
+        return color if dist < cutoff else None
+
     def place_bead(self):
         spectrum = self.controller.read_spectrum()
-        color = spectrum_to_sRGB(spectrum)
 
-        palette_index = self.classify_color(color)
+        bead_hsv = self.classifier.classify(spectrum)
 
-        if (palette_index is None) or (palette_index not in self.to_place):
+        closest_color = self.closest_color(color)
+        if closest_color is None:
             self.controller.reject()
         else: 
+            palette_index = self.prepared_image.palette.colors[closest_color]
+
             placement = min(self.to_place[palette_index], key=lambda x: PrintJob.euclidean_distance(x, self.pos))
             self.controller.drop(placement)
 
