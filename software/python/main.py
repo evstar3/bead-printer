@@ -4,9 +4,10 @@ import argparse
 import sys
 import os
 
-from fusejet import print_job
-from fusejet import comms
 from serial import Serial
+
+import fusejet.print_job
+import fusejet.comms
 
 MAX_HEIGHT = 32
 MAX_WIDTH  = 32

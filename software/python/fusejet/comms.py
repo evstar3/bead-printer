@@ -24,16 +24,13 @@ class ArduinoController():
         float_bytes = self.serial.read(24)
         raw = struct.unpack('<ffffff', float_bytes)
 
-        # total = 1
-        total = sum(raw)
-
         data = {
-            450: raw[0] / total,
-            500: raw[1] / total,
-            550: raw[2] / total,
-            570: raw[3] / total,
-            600: raw[4] / total,
-            650: raw[5] / total,
+            450: raw[0],
+            500: raw[1],
+            550: raw[2],
+            570: raw[3],
+            600: raw[4],
+            650: raw[5],
         }
 
         return data
@@ -42,7 +39,7 @@ class DebugSerial():
     def __enter__(self):
         return self
 
-    def __exit__(self):
+    def __exit__(self, exc_type, exc_value, traceback):
         pass
 
     def read(self, length):
