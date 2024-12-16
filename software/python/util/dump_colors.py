@@ -47,9 +47,8 @@ def main():
                 for i in itertools.count(lines):
                     spectrum = controller.read_spectrum()
                     print(i, spectrum)
-                    input()
-                    fp.write(json.dumps(spectrum) + '\n')
-                    fp.flush()
+                    if (input() != 'n'):
+                        fp.write(json.dumps(spectrum) + '\n')
                     controller.reject()
             except (KeyboardInterrupt, EOFError):
                 pass
