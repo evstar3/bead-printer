@@ -9,7 +9,7 @@ from pathlib import Path
 
 import fusejet.print_job
 import fusejet.comms
-from fusejet.classifier import BeadClassifier
+from fusejet.classifier import KnnBeadClassifier, KMeansBeadClassifier
 
 MAX_HEIGHT = 32
 MAX_WIDTH  = 32
@@ -27,40 +27,48 @@ def main():
         type=str
     )
     parser.add_argument(
-        '-W', '--width',
-        default=MAX_WIDTH,
-        type=int
+        '-D', '--dimension',
+        type=int,
+        nargs=2
     )
     parser.add_argument(
-        '-H', '--height',
-        default=MAX_HEIGHT,
-        type=int
+        '--classifier',
+        type=str,
+        required = True
     )
     parser.add_argument(
-        '--from-kmeans',
+        '--data',
         type=Path
     )
     parser.add_argument(
-        '--from-save',
+        '--save',
         type=Path
     )
 
     args = parser.parse_args()
 
-    # validate classifier
-    if (args.from_save and args.from_kmeans) or not (args.from_save or args.from_kmeans):
-        print('fusejet: exactly one of --from-kmeans or --from-save is required', file=sys.stderr)
+    if (args.data and args.save) or not (args.data or args.save):
+        parser.print_help(file=sys.stderr)
         sys.exit(1)
-    elif args.from_save:
-        classifier = BeadClassifier.from_save(args.from_save)
-    elif args.from_kmeans:
-        classifier = BeadClassifier.from_kmeans(args.from_kmeans)
+
+    if args.classifier == 'kmeans':
+        classifier_cls = KMeansBeadClassifier
+    elif args.classifier == 'knn':
+        classifier_cls = KnnBeadClassifier
+
+    if args.data:
+        classifier = classifier_cls.from_data(args.data)
+    elif args.save:
+        classifier = classifier_cls.from_save(args.save)
 
     # validate width and height
-    if (args.width < 1 or args.width > MAX_WIDTH):
+    if args.dimension:
+        args.dimension = tuple(args.dimension)
+
+    if args.dimension and (args.dimension[0] < 1 or args.dimension[0] > MAX_WIDTH):
         print(f'fusejet: error: WIDTH must be in range 1..{MAX_WIDTH}', file=sys.stderr)
         sys.exit(1)
-    if (args.height < 1 or args.height > MAX_HEIGHT):
+    if args.dimension and (args.dimension[1] < 1 or args.dimension[1] > MAX_HEIGHT):
         print(f'fusejet: error: HEIGHT must be in range 1..{MAX_HEIGHT}', file=sys.stderr)
         sys.exit(1)
 
@@ -81,14 +89,14 @@ def main():
         ser_args = {}
 
     with SerialClass(**ser_args) as ser:
-        job = fusejet.print_job.PrintJob(args.image_path, args.width, args.height, ser, classifier)
+        job = fusejet.print_job.PrintJob(args.image_path, args.dimension, ser, classifier)
 
         job.start()
 
         while not job.is_done():
             job.place_bead()
 
-        job.arduino_controller.stop()
+        job.controller.stop()
 
 if __name__ == '__main__':
     main()

@@ -6,7 +6,7 @@ import os
 import json
 
 from fusejet import comms
-from fusejet.classifier import BeadClassifier
+from fusejet.classifier import KMeansBeadClassifier, KnnBeadClassifier
 from serial import Serial
 from pathlib import Path
 
@@ -26,23 +26,34 @@ def main():
         default='classifier.out'
     )
     parser.add_argument(
-        '--from-kmeans',
+        '--classifier',
+        type=str,
+        required = True
+    )
+    parser.add_argument(
+        '--data',
         type=Path
     )
     parser.add_argument(
-        '--from-save',
+        '--save',
         type=Path
     )
 
     args = parser.parse_args()
 
-    if (args.from_save and args.from_kmeans) or not (args.from_save or args.from_kmeans):
+    if (args.data and args.save) or not (args.data or args.save):
         parser.print_help(file=sys.stderr)
         sys.exit(1)
-    elif args.from_save:
-        classifier = BeadClassifier.from_save(args.from_save)
-    elif args.from_kmeans:
-        classifier = BeadClassifier.from_kmeans(args.from_kmeans)
+
+    if args.classifier == 'kmeans':
+        classifier_cls = KMeansBeadClassifier
+    elif args.classifier == 'knn':
+        classifier_cls = KnnBeadClassifier
+
+    if args.data:
+        classifier = classifier_cls.from_data(args.data)
+    elif args.save:
+        classifier = classifier_cls.from_save(args.save)
 
     if args.port:
         SerialClass = Serial
@@ -56,11 +67,10 @@ def main():
 
         controller.start()
 
-
         try:
             while True:
                 spectrum = controller.read_spectrum()
-                color, distance = classifier.classify(spectrum)
+                color = classifier.classify(spectrum)
                 print(color)
                 classifier.save(args.outfile)
                 controller.reject()

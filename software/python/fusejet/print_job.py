@@ -4,21 +4,21 @@ from PIL import Image, ImagePalette
 from collections import defaultdict
 import random
 import itertools
-import colour
+import colorsys
 
 from fusejet.comms import ArduinoController
 
 class PrintJob():
-    def __init__(self, image_fp, width, height, serial, classifier) -> None:
+    def __init__(self, image_fp, dimension, serial, classifier) -> None:
         self.controller = ArduinoController(serial)
-        self.initialize_job_state(image_fp, width, height)
+        self.initialize_job_state(image_fp, dimension)
         self.classifier = classifier
 
-    def initialize_job_state(self, image_fp, width, height):
+    def initialize_job_state(self, image_fp, dimension):
         self.pos = (0, 0)
         self.placed = {}
 
-        self.prepared_image = self.prepare_image(image_fp, width, height)
+        self.prepared_image = self.prepare_image(image_fp, dimension)
 
         # initialize to_place collection
         self.to_place = defaultdict(set)
@@ -30,8 +30,13 @@ class PrintJob():
                 if color != self.prepared_image.info['transparency']:
                     self.to_place[color].add((row, col))
 
-    def prepare_image(self, image_fp, width, height):
-        im = Image.open(image_fp).resize((width, height)).convert('RGBA').quantize(colors=30, dither=Image.Dither.NONE)
+    def prepare_image(self, image_fp, dimension):
+        im = Image.open(image_fp)
+
+        if dimension is not None:
+            im = im.resize(dimension)
+
+        im = im.convert('RGBA').quantize(colors=30, dither=Image.Dither.NONE)
 
         # find an unused color in the palette to use as the transparent color
         # probability of collision = (1 / 256) ** 2
@@ -75,13 +80,25 @@ class PrintJob():
         return pow(sum(pow(ai - bi, 2) for ai, bi in zip(a, b)), 0.5)
 
     def closest_hsv(self, hsv):
+        hsv_colors = [colorsys.rgb_to_hsv(*map(lambda x: x / 255, color)) for color in self.prepared_image.palette.colors]
+
+        def normalize(rgb):
+            return tuple(map(lambda x: x / 255, rgb))
+
+        def hsv_distance(hsv0, hsv1):
+            dh = min(abs(hsv1[0] - hsv0[0]), 1 - abs(hsv1[0] - hsv0[0]))
+            ds = abs(hsv1[1] - hsv0[1])
+            dv = abs(hsv[2] - hsv[2])
+
+            return pow(dh * dh + ds * ds + dv * dv, 0.5)
+
         color, dist = min(
-            ((color, PrintJob.euclidean_distance(colour.RGB_to_HSV(color), hsv)) for color, index in self.prepared_image.palette.colors.items()
+            ((color, hsv_distance(colorsys.rgb_to_hsv(*normalize(color)), hsv)) for color, index in self.prepared_image.palette.colors.items()
                 if index in self.to_place),
             key=lambda x: x[1]
         )
 
-        print(dist)
+        print(color, dist)
 
         cutoff = 3000
         return color if dist < cutoff else None
@@ -89,9 +106,10 @@ class PrintJob():
     def place_bead(self):
         spectrum = self.controller.read_spectrum()
 
-        hsv, _ = self.classifier.classify(spectrum)
+        hsv = self.classifier.classify(spectrum)
 
         closest_hsv = self.closest_hsv(hsv)
+
         if closest_hsv is None:
             self.controller.reject()
         else: 

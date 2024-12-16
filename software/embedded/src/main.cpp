@@ -30,10 +30,10 @@ Y = vertical axis
 #define REJECT_X 190
 #define MAX_X 190
 #define MAX_Y 190
-#define MM_PER_BEAD_X 5.01
+#define MM_PER_BEAD_X 5.04
 #define MM_PER_BEAD_Y 5.01
-#define BEAD_OFFSET_X 11.6
-#define BEAD_OFFSET_Y 12.8
+#define BEAD_OFFSET_X 10.1
+#define BEAD_OFFSET_Y 11.9
 // 0.12deg offset
 #define BEAD_PHOTORESISTOR_THRESHOLD 200
 
@@ -44,7 +44,7 @@ Y = vertical axis
 #define AXIS_MM_PER_REV 5
 #define AXIS_STEPS_PER_MM ((int)(AXIS_STEPS_PER_REV / AXIS_MM_PER_REV))
 
-#define NEUTRAL_ANGLE 180
+#define NEUTRAL_ANGLE 170
 
 // globals
 
@@ -265,7 +265,7 @@ inline void moveToBead(uint8_t x, uint8_t y) {
 }
 
 void dropRoutine() {
-    const int DROP_ANGLE = 52;
+    const int DROP_ANGLE = 49;
 
     // make sure at neutral
     DropServo.write(NEUTRAL_ANGLE);
@@ -281,8 +281,7 @@ void dropRoutine() {
 }
 
 void parseSerial() {
-    while (!Serial.available())
-        ;
+    while (!Serial.available());
 
     uint8_t buf = Serial.peek();
     uint8_t x, y;
@@ -359,6 +358,7 @@ void parseSerial() {
         case 1:
             // stop bead gear
             setBeadGearStepper(false);
+            moveTo(0, MAX_Y);
             break;
         case 2:
             // 2: move to <x, y [bead indices]>, drop bead

@@ -4,11 +4,12 @@ import json
 import pickle
 import numpy as np
 from scipy.cluster.vq import whiten, kmeans, vq, kmeans2
+from sklearn.neighbors import KNeighborsClassifier
 from pathlib import Path
 
-class BeadClassifier():
+class KMeansBeadClassifier():
     def from_save(path: Path):
-        self = BeadClassifier()
+        self = KMeansBeadClassifier()
 
         with path.open('rb') as fp:
             centroids, hue_map = pickle.load(fp)
@@ -18,8 +19,8 @@ class BeadClassifier():
 
         return self
 
-    def from_kmeans(path: Path, k=9):
-        self = BeadClassifier()
+    def from_data(path: Path, k=9):
+        self = KMeansBeadClassifier()
 
         with path.open('r') as fp:
             spectrums = np.array([json.loads(line)['spectrum'] for line in fp])
@@ -27,7 +28,7 @@ class BeadClassifier():
         centroids, _ = kmeans2(spectrums, k, minit='++')
 
         self.centroids = centroids
-        self.map = {i: None for i in range(len(centroids))}
+        self.map = {i: None for i in range(len(self.centroids))}
 
         return self
 
@@ -43,9 +44,54 @@ class BeadClassifier():
 
         if result is None:
             hue_str = input('No saved RGB triple. Enter best hue match (from HSV): ')
-            result = tuple(map(int, hue_str.split()))
-            if len(result) != 3:
-                raise RuntimeError
+            h, s, v = tuple(map(int, hue_str.split()))
+            result = h / 360, s / 100, v / 100
             self.map[index] = result
 
-        return result, dist_2[index]
+        return result
+
+class KnnBeadClassifier():
+    def from_save(path: Path):
+        self = KnnBeadClassifier()
+
+        with path.open('rb') as fp:
+            neigh, hsv_map = pickle.load(fp)
+
+        self.neigh = neigh
+        self.map = hsv_map
+
+        return self
+
+    def from_data(path: Path, k=9):
+        self = KnnBeadClassifier()
+
+        spectrums = []
+        labels = []
+        with path.open('r') as fp:
+            for line in fp:
+                obj = json.loads(line)
+                spectrums.append(obj['spectrum'])
+                labels.append(obj['label'])
+
+        self.neigh = KNeighborsClassifier(n_neighbors=3)
+        self.neigh.fit(spectrums, labels)
+
+        self.map = {i: None for i in range(k)}
+
+        return self
+
+    def save(self, path: Path):
+        with path.open('wb') as fp:
+            pickle.dump((self.neigh, self.map), fp)
+
+    def classify(self, spectrum):
+        index = self.neigh.predict([spectrum])[0]
+        result = self.map[int(index)]
+
+        if result is None:
+            hue_str = input('No saved RGB triple. Enter best hue match (from HSV): ')
+            h, s, v = tuple(map(int, hue_str.split()))
+            result = h / 360, s / 100, v / 100
+            self.map[index] = result
+
+        return result
