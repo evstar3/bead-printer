@@ -4,6 +4,7 @@ from PIL import Image, ImagePalette
 from collections import defaultdict
 import random
 import itertools
+import colour
 
 from fusejet.comms import ArduinoController
 from fusejet.color import spectrum_to_sRGB
