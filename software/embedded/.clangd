@@ -6,6 +6,7 @@ CompileFlags:
       -DLWIP_NO_UNISTD_H=1,
       -Dssize_t=long,
       -D_SSIZE_T_DECLARED,
+      -Wall,
     ]
   Remove:
     [

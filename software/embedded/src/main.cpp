@@ -5,7 +5,6 @@
 
 #include "Servo.h"
 
-
 /*
 Note:
 X = horizontal axis
@@ -28,17 +27,21 @@ Y = vertical axis
 
 // physical constants
 
-#define REJECT_X 190     // TODO: figure out actual value
-#define MM_PER_BEAD 6    // TODO: figure out actual value
-#define BEAD_OFFSET_X 10 // TODO: figure out actual value
-#define BEAD_OFFSET_Y 10 // TODO: figure out actual value
+#define REJECT_X 190
+#define MAX_X 190
+#define MAX_Y 190
+#define MM_PER_BEAD_X 5.01
+#define MM_PER_BEAD_Y 5.01
+#define BEAD_OFFSET_X 11.6
+#define BEAD_OFFSET_Y 12.8
+// 0.12deg offset
 
 #define HOMING_STEP_DELAY_US 1000
 #define STEP_DELAY_US 1000
 
 #define AXIS_STEPS_PER_REV 200
 #define AXIS_MM_PER_REV 5
-#define AXIS_STEPS_PER_MM (AXIS_STEPS_PER_REV / AXIS_MM_PER_REV)
+#define AXIS_STEPS_PER_MM ((int)(AXIS_STEPS_PER_REV / AXIS_MM_PER_REV))
 
 #define NEUTRAL_ANGLE 180
 
@@ -103,21 +106,22 @@ void servoInit() {
 }
 
 void colorSensorInit() {
-    while (!ColorSensor.begin());
+    while (!ColorSensor.begin())
+        ;
 
     ColorSensor.drvOn(); // super bright white LED
     ColorSensor.indicateLED(true);
 }
 
-void photoresistorInit() {
-    pinMode(PHOTORESISTOR_PIN, INPUT);
-}
+void photoresistorInit() { pinMode(PHOTORESISTOR_PIN, INPUT); }
 
 void setBeadGearStepper(bool set_on) {
+    digitalWrite(LED_BUILTIN, set_on);
     // disable global interrupts
     cli();
 
     if (set_on) {
+        Serial.println("enable");
         // Set compare match register to desired timer count
         // f = 16 MHz / (prescaler * (1 + OCR1A))
         // => OCR1A = 16 Mhz / F / prescaler - 1
@@ -137,6 +141,7 @@ void setBeadGearStepper(bool set_on) {
         // enable timer compare interrupt
         TIMSK1 |= (1 << OCIE1A);
     } else {
+        Serial.println("disable");
         // clear current timer configs
         TCCR1A = 0;
         TCCR1B = 0;
@@ -151,10 +156,8 @@ void setBeadGearStepper(bool set_on) {
 }
 
 void homeAxes() {
-    int axis_pins[2][3] = {
-        {X_DIR_PIN, X_STEP_PIN, X_STOP_PIN},
-        {Y_DIR_PIN, Y_STEP_PIN, Y_STOP_PIN}
-    };
+    int axis_pins[2][3] = {{X_DIR_PIN, X_STEP_PIN, X_STOP_PIN},
+                           {Y_DIR_PIN, Y_STEP_PIN, Y_STOP_PIN}};
 
     for (uint8_t axis = 0; axis < 2; axis++) {
         int dir_pin = axis_pins[axis][0];
@@ -170,6 +173,14 @@ void homeAxes() {
             delayMicroseconds(HOMING_STEP_DELAY_US);
         }
 
+        // back off anyway
+        digitalWrite(dir_pin, LOW);
+        while (digitalRead(stop_pin) == LOW) {
+            digitalWrite(step_pin, HIGH);
+            delayMicroseconds(HOMING_STEP_DELAY_US);
+            digitalWrite(step_pin, LOW);
+            delayMicroseconds(HOMING_STEP_DELAY_US);
+        }
         // now back off 5mm
         digitalWrite(dir_pin, LOW);
         for (int i = 0; i < 5 * AXIS_STEPS_PER_MM; i++) {
@@ -196,13 +207,18 @@ void homeAxes() {
 
 // operates on real world coordinates (mm)
 void moveTo(double x, double y) {
+    Serial.print("Moving to ");
+    Serial.print(x);
+    Serial.print(' ');
+    Serial.print(y);
+    Serial.println();
     if (!IsHomed)
         return;
 
     if (x == CurrentX && y == CurrentY)
         return;
 
-    if (x < 0 || y < 0)
+    if (x < 0 || y < 0 || x > MAX_X || y > MAX_Y)
         return;
 
     int16_t x_steps = (CurrentX - x) * AXIS_STEPS_PER_MM;
@@ -245,11 +261,12 @@ void moveTo(double x, double y) {
 
 // converts bead indices to coordinates
 inline void moveToBead(uint8_t x, uint8_t y) {
-    moveTo(x * MM_PER_BEAD + BEAD_OFFSET_X, y * MM_PER_BEAD + BEAD_OFFSET_Y);
+    moveTo(x * MM_PER_BEAD_X + BEAD_OFFSET_X,
+           y * MM_PER_BEAD_Y + BEAD_OFFSET_Y);
 }
 
 void dropRoutine() {
-    const int DROP_ANGLE = 65;
+    const int DROP_ANGLE = 85;
 
     // make sure at neutral
     DropServo.write(NEUTRAL_ANGLE);
@@ -265,7 +282,8 @@ void dropRoutine() {
 }
 
 void parseSerial() {
-    while (!Serial.available());
+    while (!Serial.available())
+        ;
 
     uint8_t buf = Serial.peek();
     uint8_t x, y;
@@ -273,7 +291,8 @@ void parseSerial() {
     if (buf >= 'a' && buf <= 'z') {
         String command = "";
         while (true) {
-            while (!Serial.available());
+            while (!Serial.available())
+                ;
 
             char c = Serial.read();
             if (c == '\n' || c == '\r')
@@ -344,7 +363,8 @@ void parseSerial() {
             break;
         case 2:
             // 2: move to <x, y [bead indices]>, drop bead
-            while (Serial.available() < 2);
+            while (Serial.available() < 2)
+                ;
 
             // these are bead indices
             x = Serial.read();
@@ -367,11 +387,13 @@ void parseSerial() {
 volatile bool beadGearStepValue = 0;
 ISR(TIMER1_COMPA_vect) {
     digitalWrite(GEAR_STEP_PIN, beadGearStepValue);
+    // Serial.println(beadGearStepValue);
     beadGearStepValue = !beadGearStepValue;
 }
 
 void setup() {
     pinMode(LED_BUILTIN, OUTPUT);
+    delay(1000);
 
     Serial.begin(115200);
 
@@ -382,6 +404,8 @@ void setup() {
     photoresistorInit();
     homeAxes();
 
+    setBeadGearStepper(true);
+    setBeadGearStepper(false);
     setBeadGearStepper(true);
 }
 
