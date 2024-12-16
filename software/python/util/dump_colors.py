@@ -4,7 +4,6 @@ import argparse
 import sys
 import os
 import json
-import itertools
 
 from fusejet import comms
 from serial import Serial
@@ -44,11 +43,12 @@ def main():
             controller = comms.ArduinoController(ser)
 
             try:
-                for i in itertools.count(lines):
+                while True:
                     spectrum = controller.read_spectrum()
-                    print(i, spectrum)
+                    print(lines, spectrum)
                     if (input() != 'n'):
                         fp.write(json.dumps(spectrum) + '\n')
+                        lines += 1
                     controller.reject()
             except (KeyboardInterrupt, EOFError):
                 pass
