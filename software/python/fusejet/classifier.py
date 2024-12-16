@@ -42,11 +42,7 @@ class BeadClassifier():
         result = self.map[index]
 
         if result is None:
-            hsv_str = input('No saved RGB triple. Enter best color match (HSV):')
-            result = hsv_str.split()
-            if len(result) != 3:
-                raise RuntimeError('expecting three space-separated integers')
-
-            self.map[index] = result
+            hue_str = input('No saved RGB triple. Enter best hue match (from HSV):')
+            self.map[index] = int(hue_str)
 
         return result

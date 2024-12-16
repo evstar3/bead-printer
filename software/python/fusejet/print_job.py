@@ -74,22 +74,22 @@ class PrintJob():
         assert len(a) == len(b)
         return pow(sum(pow(ai - bi, 2) for ai, bi in zip(a, b)), 0.5)
 
-    def closest_color(self, hsv):
-        color, dist = min(((color, pow(colour.rgb_to_hsv(color)[0] - hsv[0], 2)) for color in self.to_place), key=lambda x: x[1])
+    def closest_hue(self, hue):
+        hue, dist = min(((hue, pow(colour.rgb_to_hsv(hue)[0] - hue, 2)) for hue in self.to_place), key=lambda x: x[1])
 
         cutoff = 500
-        return color if dist < cutoff else None
+        return hue if dist < cutoff else None
 
     def place_bead(self):
         spectrum = self.controller.read_spectrum()
 
-        bead_hsv = self.classifier.classify(list(spectrum))
+        hue = self.classifier.classify(list(spectrum))
 
-        closest_color = self.closest_color(color)
-        if closest_color is None:
+        closest_hue = self.closest_hue(hue)
+        if closest_hue is None:
             self.controller.reject()
         else: 
-            palette_index = self.prepared_image.palette.colors[closest_color]
+            palette_index = self.prepared_image.palette.colors[closest_hue]
 
             placement = min(self.to_place[palette_index], key=lambda x: PrintJob.euclidean_distance(x, self.pos))
             self.controller.drop(placement)
