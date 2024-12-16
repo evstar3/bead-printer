@@ -56,10 +56,11 @@ def main():
 
         controller.start()
 
+
         try:
             while True:
                 spectrum = controller.read_spectrum()
-                color = classifier.classify(list(spectrum))
+                color, distance = classifier.classify(spectrum)
                 print(color)
                 classifier.save(args.outfile)
                 controller.reject()

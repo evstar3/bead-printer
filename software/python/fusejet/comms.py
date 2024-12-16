@@ -24,14 +24,14 @@ class ArduinoController():
         float_bytes = self.serial.read(24)
         raw = struct.unpack('<ffffff', float_bytes)
 
-        data = {
-            450: raw[0],
-            500: raw[1],
-            550: raw[2],
-            570: raw[3],
-            600: raw[4],
-            650: raw[5],
-        }
+        data = [
+            raw[0], # 450 
+            raw[1], # 500 
+            raw[2], # 550 
+            raw[3], # 570 
+            raw[4], # 600 
+            raw[5], # 650 
+        ]
 
         return data
 

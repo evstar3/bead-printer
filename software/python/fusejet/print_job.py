@@ -83,7 +83,7 @@ class PrintJob():
     def place_bead(self):
         spectrum = self.controller.read_spectrum()
 
-        hue = self.classifier.classify(list(spectrum))
+        hue = self.classifier.classify(spectrum)
 
         closest_hue = self.closest_hue(hue)
         if closest_hue is None:

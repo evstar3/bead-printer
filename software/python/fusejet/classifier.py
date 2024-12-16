@@ -11,9 +11,10 @@ class BeadClassifier():
         self = BeadClassifier()
 
         with path.open('rb') as fp:
-            self.map = pickle.load(fp)
+            centroids, hue_map = pickle.load(fp)
 
-        self.centroids = np.array([np.array(list(centroid)) for centroid in self.map])
+        self.centroids = centroids
+        self.map = hue_map
 
         return self
 
@@ -21,7 +22,7 @@ class BeadClassifier():
         self = BeadClassifier()
 
         with path.open('r') as fp:
-            spectrums = np.array([list(json.loads(line).values()) for line in fp])
+            spectrums = np.array([json.loads(line) for line in fp])
 
         centroids, _ = kmeans2(spectrums, k, minit='++')
 
@@ -32,13 +33,12 @@ class BeadClassifier():
 
     def save(self, path: Path):
         with path.open('wb') as fp:
-            pickle.dump(self.map, fp)
+            pickle.dump((self.centroids, self.map), fp)
 
     def classify(self, spectrum):
         dist_2 = np.sum((self.centroids - spectrum)**2, axis=1)
 
         index = np.argmin(dist_2)
-
         result = self.map[index]
 
         if result is None:
@@ -46,4 +46,4 @@ class BeadClassifier():
             result = int(hue_str)
             self.map[index] = result
 
-        return result
+        return result, dist_2[index]
