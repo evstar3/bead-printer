@@ -35,6 +35,8 @@ def main():
         SerialClass = comms.DebugSerial
         ser_args = {}
 
+    args.outfile.touch()
+
     with args.outfile.open('r') as fp:
         lines = len(fp.readlines())
 
