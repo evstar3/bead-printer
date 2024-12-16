@@ -12,7 +12,7 @@ from pathlib import Path
 def main():
     # parse command line arguments
     parser = argparse.ArgumentParser(
-        prog='bead_color_getter'
+        prog='dump_colors'
     )
 
     parser.add_argument(
@@ -35,7 +35,8 @@ def main():
         SerialClass = comms.DebugSerial
         ser_args = {}
 
-    args.outfile.touch()
+    if not args.outfile.exists():
+        args.outfile.touch()
 
     with args.outfile.open('r') as fp:
         lines = len(fp.readlines())
