@@ -37,6 +37,7 @@ def main():
     args = parser.parse_args()
 
     if (args.from_save and args.from_kmeans) or not (args.from_save or args.from_kmeans):
+        parser.print_help(file=sys.stderr)
         sys.exit(1)
     elif args.from_save:
         classifier = BeadClassifier.from_save(args.from_save)
