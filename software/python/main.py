@@ -77,11 +77,11 @@ def main():
         SerialClass = Serial
         ser_args = {'port': args.port, 'baudrate': 115200}
     else:
-        SerialClass = comms.DebugSerial
+        SerialClass = fusejet.comms.DebugSerial
         ser_args = {}
 
     with SerialClass(**ser_args) as ser:
-        job = print_job.PrintJob(args.image_path, args.width, args.height, ser, classifier)
+        job = fusejet.print_job.PrintJob(args.image_path, args.width, args.height, ser, classifier)
 
         job.start()
 

@@ -7,7 +7,6 @@ import itertools
 import colour
 
 from fusejet.comms import ArduinoController
-from fusejet.color import spectrum_to_sRGB
 
 class PrintJob():
     def __init__(self, image_fp, width, height, serial, classifier) -> None:
@@ -76,7 +75,7 @@ class PrintJob():
         return pow(sum(pow(ai - bi, 2) for ai, bi in zip(a, b)), 0.5)
 
     def closest_color(self, hsv):
-        color, dist = min((color, pow(colour.rgb_to_hsv(color)[0] - hsv[0], 2)) for color in self.to_place, key=lambda x: x[1])
+        color, dist = min(((color, pow(colour.rgb_to_hsv(color)[0] - hsv[0], 2)) for color in self.to_place), key=lambda x: x[1])
 
         cutoff = 500
         return color if dist < cutoff else None
