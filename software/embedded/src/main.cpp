@@ -281,7 +281,8 @@ void dropRoutine() {
 }
 
 void parseSerial() {
-    while (!Serial.available());
+    while (!Serial.available())
+        ;
 
     uint8_t buf = Serial.peek();
     uint8_t x, y;
