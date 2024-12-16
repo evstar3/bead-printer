@@ -4,6 +4,7 @@ import argparse
 import sys
 import os
 import json
+import itertools
 
 from fusejet import comms
 from serial import Serial
@@ -40,9 +41,9 @@ def main():
             controller = comms.ArduinoController(ser)
 
             try:
-                while True:
+                for i in itertools.count():
                     spectrum = controller.read_spectrum()
-                    print(spectrum)
+                    print(i, spectrum)
                     fp.write(json.dumps(spectrum) + '\n')
                     fp.flush()
                     controller.reject()
