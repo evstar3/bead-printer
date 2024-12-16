@@ -3,8 +3,8 @@
 import argparse
 import sys
 import os
+import json
 
-from fusejet import print_job
 from fusejet import comms
 from serial import Serial
 from pathlib import Path
@@ -41,9 +41,11 @@ def main():
 
             try:
                 while True:
-                    fp.write(str(controller.read_spectrum()))
-                    fp.write('\n')
+                    spectrum = controller.read_spectrum()
+                    print(spectrum)
+                    fp.write(json.dumps(spectrum) + '\n')
                     fp.flush()
+                    controller.reject()
             except (KeyboardInterrupt, EOFError):
                 pass
 
