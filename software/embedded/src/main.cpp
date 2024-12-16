@@ -35,6 +35,7 @@ Y = vertical axis
 #define BEAD_OFFSET_X 11.6
 #define BEAD_OFFSET_Y 12.8
 // 0.12deg offset
+#define BEAD_PHOTORESISTOR_THRESHOLD 200
 
 #define HOMING_STEP_DELAY_US 1000
 #define STEP_DELAY_US 1000
@@ -98,6 +99,11 @@ void stepperInit() {
     digitalWrite(GEAR_STEP_PIN, LOW);
     digitalWrite(X_STEP_PIN, LOW);
     digitalWrite(Y_DIR_PIN, LOW);
+
+    // start bead gear
+    setBeadGearStepper(true);
+    setBeadGearStepper(false);
+    setBeadGearStepper(true);
 }
 
 void servoInit() {
@@ -121,7 +127,6 @@ void setBeadGearStepper(bool set_on) {
     cli();
 
     if (set_on) {
-        Serial.println("enable");
         // Set compare match register to desired timer count
         // f = 16 MHz / (prescaler * (1 + OCR1A))
         // => OCR1A = 16 Mhz / F / prescaler - 1
@@ -141,7 +146,6 @@ void setBeadGearStepper(bool set_on) {
         // enable timer compare interrupt
         TIMSK1 |= (1 << OCIE1A);
     } else {
-        Serial.println("disable");
         // clear current timer configs
         TCCR1A = 0;
         TCCR1B = 0;
@@ -207,11 +211,6 @@ void homeAxes() {
 
 // operates on real world coordinates (mm)
 void moveTo(double x, double y) {
-    Serial.print("Moving to ");
-    Serial.print(x);
-    Serial.print(' ');
-    Serial.print(y);
-    Serial.println();
     if (!IsHomed)
         return;
 
@@ -266,7 +265,7 @@ inline void moveToBead(uint8_t x, uint8_t y) {
 }
 
 void dropRoutine() {
-    const int DROP_ANGLE = 85;
+    const int DROP_ANGLE = 52;
 
     // make sure at neutral
     DropServo.write(NEUTRAL_ANGLE);
@@ -403,32 +402,37 @@ void setup() {
     colorSensorInit();
     photoresistorInit();
     homeAxes();
-
-    setBeadGearStepper(true);
-    setBeadGearStepper(false);
-    setBeadGearStepper(true);
 }
 
 void loop() {
-    // float ColorSensorData[AS726x_NUM_CHANNELS];
-    //
-    // // read analog value from photoresistor
-    // // while it's larger than the threshold, keep looping
-    // // (lack of bead means more light hits it)
-    // while (analogRead(PHOTORESISTOR_PIN) > BEAD_PHOTORESISTOR_THRESHOLD)
-    //   delay(5);
-    //
-    // // read color sensor data, store in sendBuf
-    // ColorSensor.startMeasurement();
-    //
-    // // wait till data is available
-    // while (!ColorSensor.dataReady())
-    //   delay(5);
-    // ColorSensor.readCalibratedValues(ColorSensorData);
-    //
-    // // send the color values as raw bytes (6 x f32)
-    // Serial.write((uint8_t *)ColorSensorData, sizeof(ColorSensorData));
+    float ColorSensorData[AS726x_NUM_CHANNELS];
+
+    // read analog value from photoresistor
+    // while it's larger than the threshold, keep looping
+    // (lack of bead means more light hits it)
+    while (analogRead(PHOTORESISTOR_PIN) > BEAD_PHOTORESISTOR_THRESHOLD)
+        delay(5);
+
+    // dropRoutine();
+
+    // read color sensor data, store in sendBuf
+    ColorSensor.startMeasurement();
+
+    // wait till data is available
+    while (!ColorSensor.dataReady())
+        delay(5);
+    ColorSensor.readCalibratedValues(ColorSensorData);
+
+    // send the color values as raw bytes (6 x f32)
+    Serial.write((uint8_t *)ColorSensorData, sizeof(ColorSensorData));
 
     // this blocks on a response
     parseSerial();
+
+    // if (Serial.peek() != -1)
+    //     parseSerial();
+
+    // Serial.println(analogRead(PHOTORESISTOR_PIN));
+    // Serial.println(analogRead(PHOTORESISTOR_PIN) <
+    //                BEAD_PHOTORESISTOR_THRESHOLD);
 }
