@@ -23,7 +23,7 @@ def main():
     parser.add_argument(
         '-o', '--outfile',
         type=Path,
-        default=Path('bead_color_data.txt')
+        default=Path('util/colors.txt')
     )
 
     args = parser.parse_args()
