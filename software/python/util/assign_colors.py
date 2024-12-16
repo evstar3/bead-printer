@@ -54,14 +54,17 @@ def main():
     with SerialClass(**ser_args) as ser:
         controller = comms.ArduinoController(ser)
 
+        controller.start()
+
         try:
             while True:
                 spectrum = controller.read_spectrum()
                 color = classifier.classify(list(spectrum))
                 print(color)
                 classifier.save(args.outfile)
+                controller.reject()
         except (KeyboardInterrupt, EOFError):
-            pass
+            controller.stop()
 
 if __name__ == '__main__':
     main()
