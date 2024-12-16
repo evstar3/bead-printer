@@ -6,7 +6,7 @@ import os
 import json
 
 from fusejet import comms
-from fusejet import classifier
+from fusejet.classifier import BeadClassifier
 from serial import Serial
 from pathlib import Path
 
