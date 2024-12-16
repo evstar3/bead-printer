@@ -1,7 +1,10 @@
 colour-science==0.4.6
 imageio==2.36.0
+joblib==1.4.2
 numpy==2.1.2
-pillow==10.4.0
+pillow==11.0.0
 pyserial==3.5
+scikit-learn==1.6.0
 scipy==1.14.1
+threadpoolctl==3.5.0
 typing_extensions==4.12.2

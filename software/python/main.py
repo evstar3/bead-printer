@@ -11,8 +11,8 @@ import fusejet.print_job
 import fusejet.comms
 from fusejet.classifier import KnnBeadClassifier, KMeansBeadClassifier
 
-MAX_HEIGHT = 32
-MAX_WIDTH  = 32
+MAX_HEIGHT = 29
+MAX_WIDTH  = 29
 
 def main():
     # parse command line arguments
@@ -29,7 +29,8 @@ def main():
     parser.add_argument(
         '-D', '--dimension',
         type=int,
-        nargs=2
+        nargs=2,
+        default=(29, 29)
     )
     parser.add_argument(
         '--classifier',
@@ -65,9 +66,7 @@ def main():
         classifier = classifier_cls.from_save(args.save)
 
     # validate width and height
-    if args.dimension:
-        args.dimension = tuple(args.dimension)
-
+    args.dimension = tuple(args.dimension)
     if args.dimension and (args.dimension[0] < 1 or args.dimension[0] > MAX_WIDTH):
         print(f'fusejet: error: WIDTH must be in range 1..{MAX_WIDTH}', file=sys.stderr)
         sys.exit(1)
@@ -93,6 +92,10 @@ def main():
 
     with SerialClass(**ser_args) as ser:
         job = fusejet.print_job.PrintJob(args.image_path, args.dimension, ser, classifier)
+        job.prepared_image.save('prepared.png')
+
+        while input() != 'yes':
+            pass
 
         job.start()
 

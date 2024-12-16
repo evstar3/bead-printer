@@ -43,9 +43,9 @@ class KMeansBeadClassifier():
         result = self.map[index]
 
         if result is None:
-            hue_str = input('No saved RGB triple. Enter best hue match (from HSV): ')
-            h, s, v = tuple(map(int, hue_str.split()))
-            result = h / 360, s / 100, v / 100
+            rgb_str = input('No saved RGB triple. Enter best match: ')
+            result = tuple(map(int, rgb_str.split()))
+            assert len(result) == 3
             self.map[index] = result
 
         return result
@@ -55,10 +55,10 @@ class KnnBeadClassifier():
         self = KnnBeadClassifier()
 
         with path.open('rb') as fp:
-            neigh, hsv_map = pickle.load(fp)
+            neigh, rgb_map = pickle.load(fp)
 
         self.neigh = neigh
-        self.map = hsv_map
+        self.map = rgb_map
 
         return self
 
@@ -88,10 +88,12 @@ class KnnBeadClassifier():
         index = self.neigh.predict([spectrum])[0]
         result = self.map[int(index)]
 
+        print(result)
+
         if result is None:
-            hue_str = input('No saved RGB triple. Enter best hue match (from HSV): ')
-            h, s, v = tuple(map(int, hue_str.split()))
-            result = h / 360, s / 100, v / 100
+            rgb_str = input('No saved RGB triple. Enter best match: ')
+            result = tuple(map(int, rgb_str.split()))
+            assert len(result) == 3
             self.map[index] = result
 
         return result

@@ -9,6 +9,18 @@ import colorsys
 from fusejet.comms import ArduinoController
 
 class PrintJob():
+    BEAD_PALETTE = [
+        (255, 0, 0), # red
+        (255, 106, 0), # orange
+        (255, 212, 0), # yellow
+        (0, 191, 15), # neon green
+        (0, 126, 216), # blue razzberry
+        (95, 35, 178), # magenta
+        (255, 255, 255), # white
+        (0, 0, 0), # black
+        (212, 126, 229) # SAK pink
+    ]
+
     def __init__(self, image_fp, dimension, serial, classifier) -> None:
         self.controller = ArduinoController(serial)
         self.initialize_job_state(image_fp, dimension)
@@ -33,41 +45,41 @@ class PrintJob():
         print(self.to_place)
 
     def prepare_image(self, image_fp, dimension):
-        im = Image.open(image_fp)
+        im = Image.open(image_fp).convert('RGBA')
 
-        if dimension is not None:
-            im.resize(dimension)
+        width = min(dimension[0], im.width)
+        height = min(dimension[1], im.height)
+        im = im.resize((width, height))
 
-        im = im.convert('RGBA').quantize(colors=30, dither=Image.Dither.NONE)
+        # create new RBG palette by truncating alpha values
+        palette = ImagePalette.ImagePalette(
+            mode='RGBA',
+            palette=list(itertools.chain(*PrintJob.BEAD_PALETTE))
+        )
 
-        # find an unused color in the palette to use as the transparent color
-        # probability of collision = (1 / 256) ** 2
-        #                          = 0.000015
+        transparent_pixels = set()
+        for x in range(im.width):
+            for y in range(im.height):
+                r, g, b, a = im.getpixel((x, y))
+
+                # 0 is fully transparent, 255 is fully opaque
+                if a < 200:
+                    transparent_pixels.add((x, y))
+
+        temp_im = Image.new(size=(0, 0), mode='P')
+        temp_im.putpalette(palette)
+
+        im = im.convert('RGB').quantize(palette=temp_im)
+
         while True:
-            transparent_color = tuple(random.randrange(256) for _ in range(3)) + (0,)
+            transparent_color = tuple(random.randrange(256) for _ in range(3))
             if transparent_color not in im.palette.colors:
                 break
 
-        # allocate new color in palette
-        im.palette.getcolor(transparent_color)
+        im.info['transparency'] = im.palette.getcolor(transparent_color)
 
-        # create new RBG palette by truncating alpha values
-        new_palette = ImagePalette.ImagePalette(
-            mode='RGB',
-            palette=list(itertools.chain.from_iterable(key[0:3] for key, value in im.palette.colors.items()))
-        )
-
-        # set image's transparent color
-        im.info['transparency'] = new_palette.colors[transparent_color[0:3]]
-
-        # map RGBA values to RGB values based on alpha channel cutoff
-        # fully transparent at 0, fully opaque at 255
-        cutoff = 100
-        color_by_index = {val: key for key, val in im.palette.colors.items()}
-        new_data = [val if color_by_index[val][3] > cutoff else im.info['transparency'] for val in im.getdata()]
-        im.putdata(new_data)
-
-        im.putpalette(new_palette)
+        for pos in transparent_pixels:
+            im.putpixel(pos, im.info['transparency'])
 
         return im
 
