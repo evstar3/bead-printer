@@ -36,16 +36,20 @@ def main():
         SerialClass = comms.DebugSerial
         ser_args = {}
 
+    with args.outfile.open('r') as fp:
+        lines = len(fp.readlines())
+
     with args.outfile.open('a') as fp:
         with SerialClass(**ser_args) as ser:
             controller = comms.ArduinoController(ser)
 
             try:
-                for i in itertools.count():
+                for i in itertools.count(lines):
                     spectrum = controller.read_spectrum()
                     print(i, spectrum)
                     fp.write(json.dumps(spectrum) + '\n')
                     fp.flush()
+                    input()
                     controller.reject()
             except (KeyboardInterrupt, EOFError):
                 pass
