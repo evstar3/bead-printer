@@ -18,11 +18,11 @@ class BeadClassifier():
 
         return self
 
-    def from_kmeans(path: Path, k=30):
+    def from_kmeans(path: Path, k=9):
         self = BeadClassifier()
 
         with path.open('r') as fp:
-            spectrums = np.array([json.loads(line) for line in fp])
+            spectrums = np.array([json.loads(line)['spectrum'] for line in fp])
 
         centroids, _ = kmeans2(spectrums, k, minit='++')
 
@@ -43,7 +43,9 @@ class BeadClassifier():
 
         if result is None:
             hue_str = input('No saved RGB triple. Enter best hue match (from HSV): ')
-            result = int(hue_str)
+            result = tuple(map(int, hue_str.split()))
+            if len(result) != 3:
+                raise RuntimeError
             self.map[index] = result
 
         return result, dist_2[index]

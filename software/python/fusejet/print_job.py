@@ -70,26 +70,32 @@ class PrintJob():
     def is_done(self):
         return len(self.to_place) == 0
 
-    def euclidiean_distance(a, b):
+    def euclidean_distance(a, b):
         assert len(a) == len(b)
         return pow(sum(pow(ai - bi, 2) for ai, bi in zip(a, b)), 0.5)
 
-    def closest_hue(self, hue):
-        hue, dist = min(((hue, pow(colour.rgb_to_hsv(hue)[0] - hue, 2)) for hue in self.to_place), key=lambda x: x[1])
+    def closest_hsv(self, hsv):
+        color, dist = min(
+            ((color, PrintJob.euclidean_distance(colour.RGB_to_HSV(color), hsv)) for color, index in self.prepared_image.palette.colors.items()
+                if index in self.to_place),
+            key=lambda x: x[1]
+        )
 
-        cutoff = 500
-        return hue if dist < cutoff else None
+        print(dist)
+
+        cutoff = 3000
+        return color if dist < cutoff else None
 
     def place_bead(self):
         spectrum = self.controller.read_spectrum()
 
-        hue = self.classifier.classify(spectrum)
+        hsv, _ = self.classifier.classify(spectrum)
 
-        closest_hue = self.closest_hue(hue)
-        if closest_hue is None:
+        closest_hsv = self.closest_hsv(hsv)
+        if closest_hsv is None:
             self.controller.reject()
         else: 
-            palette_index = self.prepared_image.palette.colors[closest_hue]
+            palette_index = self.prepared_image.palette.colors[closest_hsv]
 
             placement = min(self.to_place[palette_index], key=lambda x: PrintJob.euclidean_distance(x, self.pos))
             self.controller.drop(placement)

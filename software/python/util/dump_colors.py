@@ -48,10 +48,13 @@ def main():
             try:
                 while True:
                     spectrum = controller.read_spectrum()
-                    print(lines, spectrum)
-                    if (input() != 'n'):
-                        fp.write(json.dumps(spectrum) + '\n')
+                    inp = input(f'{lines}: {spectrum}\nlabel: ').strip()
+                    try:
+                        label = int(inp)
+                        fp.write(json.dumps({'label': label, 'spectrum': spectrum}) + '\n')
                         lines += 1
+                    except:
+                        pass
                     controller.reject()
             except (KeyboardInterrupt, EOFError):
                 pass

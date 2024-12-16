@@ -411,14 +411,12 @@ void loop() {
     // while it's larger than the threshold, keep looping
     // (lack of bead means more light hits it)
     while (analogRead(PHOTORESISTOR_PIN) > BEAD_PHOTORESISTOR_THRESHOLD)
-        delay(400);
+        delay(5);
 
-    // dropRoutine();
+    // wait for bead to settle into place
+    delay(500);
 
-    // read color sensor data, store in sendBuf
     ColorSensor.startMeasurement();
-
-    // wait till data is available
     while (!ColorSensor.dataReady())
         delay(5);
     ColorSensor.readCalibratedValues(ColorSensorData);
