@@ -42,7 +42,8 @@ class BeadClassifier():
         result = self.map[index]
 
         if result is None:
-            hue_str = input('No saved RGB triple. Enter best hue match (from HSV):')
-            self.map[index] = int(hue_str)
+            hue_str = input('No saved RGB triple. Enter best hue match (from HSV): ')
+            result = int(hue_str)
+            self.map[index] = result
 
         return result
