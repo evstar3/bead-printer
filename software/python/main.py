@@ -34,15 +34,18 @@ def main():
     parser.add_argument(
         '--classifier',
         type=str,
-        required = True
+        required = True,
+        choices=['kmeans', 'knn']
     )
     parser.add_argument(
         '--data',
-        type=Path
+        type=Path,
+        help='Path to text file containing labeled bead data'
     )
     parser.add_argument(
         '--save',
-        type=Path
+        type=Path,
+        help='Path to binary file containing pretrained classifer'
     )
 
     args = parser.parse_args()

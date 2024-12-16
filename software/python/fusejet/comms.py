@@ -15,6 +15,7 @@ class ArduinoController():
         self.serial.write(struct.pack("B", 1))
 
     def drop(self, pos):
+        print(pos)
         self.serial.write(struct.pack("BBB", 2, *pos))
 
     def reject(self):

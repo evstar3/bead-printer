@@ -22,19 +22,21 @@ class PrintJob():
 
         # initialize to_place collection
         self.to_place = defaultdict(set)
-        for row in range(self.prepared_image.height):
-            for col in range(self.prepared_image.width):
+        for col in range(self.prepared_image.height):
+            for row in range(self.prepared_image.width):
                 color = self.prepared_image.getpixel((row, col))
 
                 # only want to place non-transparent colors
                 if color != self.prepared_image.info['transparency']:
                     self.to_place[color].add((row, col))
 
+        print(self.to_place)
+
     def prepare_image(self, image_fp, dimension):
         im = Image.open(image_fp)
 
         if dimension is not None:
-            im = im.resize(dimension)
+            im.resize(dimension)
 
         im = im.convert('RGBA').quantize(colors=30, dither=Image.Dither.NONE)
 
@@ -79,7 +81,7 @@ class PrintJob():
         assert len(a) == len(b)
         return pow(sum(pow(ai - bi, 2) for ai, bi in zip(a, b)), 0.5)
 
-    def closest_hsv(self, hsv):
+    def closest_hsv(self, input_hsv):
         hsv_colors = [colorsys.rgb_to_hsv(*map(lambda x: x / 255, color)) for color in self.prepared_image.palette.colors]
 
         def normalize(rgb):
@@ -88,20 +90,22 @@ class PrintJob():
         def hsv_distance(hsv0, hsv1):
             dh = min(abs(hsv1[0] - hsv0[0]), 1 - abs(hsv1[0] - hsv0[0]))
             ds = abs(hsv1[1] - hsv0[1])
-            dv = abs(hsv[2] - hsv[2])
+            dv = abs(hsv1[2] - hsv0[2])
 
             return pow(dh * dh + ds * ds + dv * dv, 0.5)
 
-        color, dist = min(
-            ((color, hsv_distance(colorsys.rgb_to_hsv(*normalize(color)), hsv)) for color, index in self.prepared_image.palette.colors.items()
-                if index in self.to_place),
-            key=lambda x: x[1]
-        )
+        hsv_palette = {}
+        for color, index in self.prepared_image.palette.colors.items():
+            hsv_palette[color] = (colorsys.rgb_to_hsv(*normalize(color)), index)
 
-        print(color, dist)
+        stats = [(kvp[1], rgb, kvp[0], hsv_distance(input_hsv, kvp[0])) for rgb, kvp in hsv_palette.items() if kvp[1] in self.to_place]
 
-        cutoff = 3000
-        return color if dist < cutoff else None
+        res = min(stats, key=lambda x: x[3])
+
+        print(res)
+
+        cutoff = 0.25
+        return res[1] if res[3] < cutoff else None
 
     def place_bead(self):
         spectrum = self.controller.read_spectrum()
@@ -116,7 +120,7 @@ class PrintJob():
             palette_index = self.prepared_image.palette.colors[closest_hsv]
 
             placement = min(self.to_place[palette_index], key=lambda x: PrintJob.euclidean_distance(x, self.pos))
-            self.controller.drop(placement)
+            self.controller.drop((placement[0] + 1, placement[1]))
 
             self.placed[placement] = palette_index
             self.to_place[palette_index].remove(placement)
