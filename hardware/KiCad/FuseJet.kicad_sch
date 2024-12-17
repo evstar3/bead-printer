@@ -6,7 +6,7 @@
 	(paper "USLetter")
 	(title_block
 		(title "FuseJet")
-		(date "2024-10-28")
+		(date "2024-12-14")
 		(rev "v1")
 		(company "Steven Conaway, Evan Day, James Lindell")
 	)
@@ -3730,12 +3730,6 @@
 		(uuid "99a2c794-c6be-4189-a890-4272e44e1cc3")
 	)
 	(junction
-		(at 226.06 72.39)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "a5737213-e67a-4894-9582-dfa95ed86927")
-	)
-	(junction
 		(at 176.53 147.32)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -3752,12 +3746,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "b1497fa2-848f-497d-84f8-542f2aba41fd")
-	)
-	(junction
-		(at 226.06 74.93)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "cd2e1498-fb6d-49e6-8fe4-c3786848932d")
 	)
 	(junction
 		(at 29.21 148.59)
@@ -4273,16 +4261,6 @@
 	)
 	(wire
 		(pts
-			(xy 226.06 72.39) (xy 238.76 72.39)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7922c0a8-8bb8-457f-b482-e7271c7c8649")
-	)
-	(wire
-		(pts
 			(xy 217.17 148.59) (xy 236.22 148.59)
 		)
 		(stroke
@@ -4410,26 +4388,6 @@
 			(type default)
 		)
 		(uuid "9bfd4eac-510b-43ad-8d81-fa2c20c82b8d")
-	)
-	(wire
-		(pts
-			(xy 226.06 74.93) (xy 238.76 74.93)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9d8a0e49-656e-444a-8889-fa328a9e4ca5")
-	)
-	(wire
-		(pts
-			(xy 228.6 69.85) (xy 238.76 69.85)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a1c2490d-c44b-42ae-b260-9dadd1ca2360")
 	)
 	(wire
 		(pts
@@ -4719,17 +4677,6 @@
 			(justify left bottom)
 		)
 		(uuid "35eb63f9-212c-41bb-876f-fde8bdf2bcff")
-	)
-	(label "SERVO1"
-		(at 228.6 69.85 0)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "3c907bd0-9e6d-4906-94f6-6f102a98e0a5")
 	)
 	(label "DIR2"
 		(at 147.32 77.47 0)
@@ -6000,79 +5947,6 @@
 			(project ""
 				(path "/5639e6ca-53be-40aa-a2c6-385d148584b4"
 					(reference "#PWR01")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Motor:Motor_Servo")
-		(at 246.38 72.39 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "4d2505d6-7732-4926-9ae7-3b9afb8eb7ec")
-		(property "Reference" "M1"
-			(at 255.27 70.6865 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "Motor_Servo"
-			(at 255.27 73.2265 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 246.38 77.216 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "http://forums.parallax.com/uploads/attachments/46831/74481.png"
-			(at 246.38 77.216 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Servo Motor (Futaba, HiTec, JR connector)"
-			(at 246.38 72.39 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "3"
-			(uuid "fe438507-6311-498d-883e-2b70f9f67516")
-		)
-		(pin "1"
-			(uuid "7b07707c-c353-4af8-8ec1-052a8f901ab2")
-		)
-		(pin "2"
-			(uuid "4242a51c-fabf-4e0a-a96a-46d7ab311a8e")
-		)
-		(instances
-			(project ""
-				(path "/5639e6ca-53be-40aa-a2c6-385d148584b4"
-					(reference "M1")
 					(unit 1)
 				)
 			)
